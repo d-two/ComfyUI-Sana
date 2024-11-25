@@ -140,7 +140,7 @@ class UL_SanaModelLoader:
         return {
             'required': {
                 "unet_name": (folder_paths.get_filename_list("diffusion_models"), ),
-                "clip_type": (["gemma-2-2b-it","Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
+                "clip_type": (["gemma-2-2b-it", 'gemma-2-2b-it-bnb-4bit',"Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
                 "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
                 "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", 'tooltip': 'For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption.'}),
             },
@@ -174,6 +174,11 @@ class UL_SanaModelLoader:
             # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it'
             if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
                 snapshot_download('unsloth/gemma-2-2b-it', local_dir=text_encoder_dir)
+        elif clip_type == 'gemma-2-2b-it-bnb-4bit':
+            text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it-bnb-4bit')
+            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it-bnb-4bit'
+            if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
+                snapshot_download('unsloth/gemma-2-2b-it-bnb-4bit', local_dir=text_encoder_dir)
         else:
             raise ValueError('Not implemented!')
         
@@ -185,14 +190,19 @@ class UL_SanaModelLoader:
             text_encoder_model = None
             text_encoder = T5EncoderModel.from_pretrained(text_encoder_dir, torch_dtype=dtype)
         else:
-            from transformers import AutoTokenizer, AutoModelForCausalLM#, Gemma2ForCausalLM, Gemma2Config
+            from transformers import AutoTokenizer, AutoModelForCausalLM#, BitsAndBytesConfig#, Gemma2ForCausalLM, Gemma2Config
+            # bnb_config = BitsAndBytesConfig(
+            #     load_in_4bit=True,
+            #     bnb_4bit_quant_type="nf4",
+            #     bnb_4bit_use_double_quant=False,
+            # )
             tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
             # config = Gemma2Config.from_json_file()
             # text_encoder_model = Gemma2ForCausalLM(**config)
             # state_dict = load_torch_file(text_encoder_path)
             # text_encoder_model.load_state_dict()
             tokenizer.padding_side = "right"
-            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)# if clip_type == 'gemma-2-2b-it' else AutoModelForCausalLM.from_pretrained(text_encoder_dir,quantization_config=bnb_config, torch_dtype=dtype)
             text_encoder = text_encoder_model.get_decoder()
         
         if clip_init_device:

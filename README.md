@@ -3,13 +3,13 @@
 # Warning: 
 - A init node with lots of bugs, do not try unless interested.
 - ram will not released (tried but failed).
-- 4gb vram cuda device will oom in text_encoder, but retry works.
+- 4gb vram cuda device will oom in text_encoder with non-4bit, but retry works.
 - test on rtx cuda-device with win10+py311+torch 2.5.1+cu126.
 ## Known issue:
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
 ## Hardware requirements:
 - ram & vram: 16+gb ram, init model needs lots of ram. 4gb vram at least.
-- text_encoder: gemma-2-2b-it ~ 5gb vram.
+- text_encoder: gemma-2-2b-it ~ 5gb vram, gemma-2-2b-it-bnb-4bit ~ 2.3gb vram.
 - dit: ~ 3.5gb vram.
 - vae: ~ 3.1gb vram for 4k.
 # workflow in `assets` dir ![](./assets/Img_Gen-Sana-wf.png)
@@ -24,6 +24,8 @@
 ## text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it`.
 - https://huggingface.co/unsloth/gemma-2-2b-it
 - https://hf-mirror.com/unsloth/gemma-2-2b-it China mainland users.
-
+### 4bit text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it-bnb-4bit`. It will remain 1.5gb in vram after text_encode, which can be freed by `ComfyUI-Manager` `Free model and node cache`.
+- https://huggingface.co/unsloth/gemma-2-2b-it-bnb-4bit
+- https://hf-mirror.com/unsloth/gemma-2-2b-it-bnb-4bit China mainland users.
 # About requirements:
 - I only installed 2 modules, so i do not know what are really needed.
