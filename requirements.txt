@@ -1,0 +1,8 @@
+mmcv
+pyrallis
+ipdb
+accelerate
+diffusers
+clip
+timm
+xformers
