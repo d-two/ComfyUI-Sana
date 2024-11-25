@@ -1,13 +1,12 @@
 # Unofficial custom-node for [SANA: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer](https://github.com/NVlabs/Sana)
 
 # Warning: 
-- A init code, after diffusers sana pr merged, maybe i will rewrite if i have time. 
-- lots of bugs, do not try unless interested.
+- A init node with lots of bugs, do not try unless interested.
 - ram will not released (tried but failed).
 - 4gb vram cuda device will oom in text_encoder, but retry works.
-- test on cuda-device with win10+py311+torch 2.5.1.
+- test on rtx cuda-device with win10+py311+torch 2.5.1+cu126.
 ## Known issue:
-- Batch_size not work, it's a loop that i don't think a good idea, so i left it empty.
+- Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
 ## Hardware requirements:
 - ram & vram: 16+gb ram, init model needs lots of ram. 4gb vram at least.
 - text_encoder: gemma-2-2b-it ~ 5gb vram.
@@ -22,12 +21,9 @@
 ## vae: autodownload or manual download or git from below links into `ComfyUI\models\vae`, rename folder_name to `models--mit-han-lab--dc-ae-f32c32-sana-1.0`.
 - https://huggingface.co/mit-han-lab/dc-ae-f32c32-in-1.0
 - https://hf-mirror.com/mit-han-lab/dc-ae-f32c32-in-1.0 China mainland users.
-## text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--google--gemma-2-2b-it` (Need Account Access).
-- https://huggingface.co/google/gemma-2-2b-it
-- https://hf-mirror.com/google/gemma-2-2b-it China mainland users.
-### another `gemma-2-2b-it`, don't konw if it works ( Do Not Need Account Access).
+## text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it`.
 - https://huggingface.co/unsloth/gemma-2-2b-it
 - https://hf-mirror.com/unsloth/gemma-2-2b-it China mainland users.
 
 # About requirements:
-- I only installed 2 module, so i do not know how much are really needed.
+- I only installed 2 modules, so i do not know what are really needed.

@@ -70,8 +70,8 @@ class UL_SanaSampler:
                 "steps": ("INT", {"default": 18, "min": 1, "max": 100}),
                 "cfg": ("FLOAT", {"default": 5, "min": 0.00, "max": 99.00, "step": 0.01}),
                 "pag": ("FLOAT", {"default": 2.0, "min": 0.00, "max": 99.00, "step": 0.01}),
-                "width": ("INT", {"default": 1024,"min": 256, "max": 10240, "step": 1}),
-                "height": ("INT", {"default": 1024,"min": 256, "max": 10240, "step": 1}),
+                "width": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
+                "height": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 960}),
                 "keep_model_loaded": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Warning: do not delete model unless this node no longer needed, it will try release device_memory and ram. if checked and want to continue node generation, use ComfyUI-Manager `Free model and node cache` to reset node state or change parameter in Loader node to activate.\n注意：仅在这个节点不再需要时删除模型，将尽量尝试释放系统内存和设备专用内存。如果删除后想继续使用此节点，使用ComfyUI-Manager插件的`Free model and node cache`重置节点状态或者更换模型加载节点的参数来激活。"}),
                 "keep_model_device": ("BOOLEAN", {"default": True, "label_on": "comfy", "label_off": "device", "tooltip": "Keep model in comfy_auto_unet_offload_device (HIGH_VRAM: device, Others: cpu) or device_memory after generation.\n生图完成后，模型转移到comfy自动选择设备(HIGH_VRAM: device, 其他: cpu)或者保留在设备专用内存上。"}),
@@ -170,10 +170,10 @@ class UL_SanaModelLoader:
             snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
         
         if clip_type == 'gemma-2-2b-it':
-            text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--google--gemma-2-2b-it')
-            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--google--gemma-2-2b-it'
-            if not os.path.exists(os.path.join(text_encoder_dir, 'model-00001-of-00002.safetensors')):
-                snapshot_download('google/gemma-2-2b-it', local_dir=text_encoder_dir)
+            text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it')
+            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it'
+            if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
+                snapshot_download('unsloth/gemma-2-2b-it', local_dir=text_encoder_dir)
         else:
             raise ValueError('Not implemented!')
         
@@ -296,7 +296,8 @@ class UL_SanaTextEncode:
         null_caption_embs = text_encoder(null_caption_token.input_ids, null_caption_token.attention_mask)[0]
         
         prompts = []
-        with torch.inference_mode():
+        with torch.no_grad():
+        # with torch.inference_mode():
             prompts.append(prepare_prompt_ar(text, base_ratios, device=device, show=False)[0].strip())
             chi_prompt = "\n".join(preset_te_prompt)
             prompts_all = [chi_prompt + text]

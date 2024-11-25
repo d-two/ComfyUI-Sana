@@ -76,7 +76,8 @@ class SanaPipeline(nn.Module):
             torch.tensor([[1.0]], device=self.device).repeat(num_images_per_prompt, 1),
         )
         for _ in range(num_images_per_prompt):
-            with torch.inference_mode():
+            with torch.no_grad():
+            # with torch.inference_mode():
                 n = 1
                 caption_embs, null_y, emb_masks = conds[0].to(self.weight_dtype), conds[1].to(self.weight_dtype), conds[2]
                 
