@@ -165,7 +165,7 @@ class UL_SanaModelLoader:
         dtype = get_dtype_by_name(weight_dtype)
         unet_path = folder_paths.get_full_path_or_raise("diffusion_models", unet_name)
         vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
-        vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
+        # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
         if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
             snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
         
@@ -176,7 +176,7 @@ class UL_SanaModelLoader:
                 snapshot_download('unsloth/gemma-2-2b-it', local_dir=text_encoder_dir)
         elif clip_type == 'gemma-2-2b-it-bnb-4bit':
             text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it-bnb-4bit')
-            text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it-bnb-4bit'
+            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it-bnb-4bit'
             if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
                 snapshot_download('unsloth/gemma-2-2b-it-bnb-4bit', local_dir=text_encoder_dir)
         else:
