@@ -30,7 +30,7 @@ class UL_SanaVAEProcess:
     FUNCTION = "process"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana VAE Process"
-    OUTPUT_TOOLTIPS = 'Sana VAE Outputs.'
+    OUTPUT_TOOLTIPS = ('Sana VAE Outputs.', )
     DESCRIPTION = "WIP."
 
     def process(self, vae, latent=None, image=None):
@@ -87,7 +87,7 @@ class UL_SanaSampler:
     FUNCTION = "sampler"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana Sampler"
-    OUTPUT_TOOLTIPS = 'Sana Samples.'
+    OUTPUT_TOOLTIPS = ('Sana Samples.', )
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
     def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, output_type=False, latent=None):
@@ -151,7 +151,7 @@ class UL_SanaModelLoader:
     FUNCTION = "loader"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana Model Loader"
-    OUTPUT_TOOLTIPS = 'Sana Model Loader.'
+    OUTPUT_TOOLTIPS = ('Sana Models.', )
     DESCRIPTION = "If 16gb ram, it needs lot of time to init models."
     
     def loader(self, unet_name, clip_type, weight_dtype, clip_init_device):
