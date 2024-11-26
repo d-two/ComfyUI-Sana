@@ -16,7 +16,7 @@
 
 import torch
 from diffusers.models import AutoencoderKL
-from mmcv import Registry
+from mmengine.registry import Registry
 from termcolor import colored
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, T5EncoderModel, T5Tokenizer
 from transformers import logging as transformers_logging
