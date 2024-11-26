@@ -1,4 +1,4 @@
-mmcv-full
+mmcv==1.7.2
 pyrallis
 ipdb
 accelerate

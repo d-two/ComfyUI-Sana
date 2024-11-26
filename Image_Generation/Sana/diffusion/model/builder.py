@@ -16,13 +16,16 @@
 
 import torch
 from diffusers.models import AutoencoderKL
-from mmcv import Registry
 from termcolor import colored
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, T5EncoderModel, T5Tokenizer
 from transformers import logging as transformers_logging
-
 from .dc_ae.efficientvit.ae_model_zoo import DCAE_HF
 from .utils import set_fp32_attention, set_grad_checkpoint
+
+try:
+    from mmengine.registry import Registry
+except ImportError as e:
+    from mmcv import Registry
 
 MODELS = Registry("models")
 

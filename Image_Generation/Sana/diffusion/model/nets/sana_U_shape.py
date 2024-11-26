@@ -19,7 +19,10 @@ import os
 
 import torch
 import torch.nn as nn
-from timm.layers import DropPath
+try:
+    from timm.layers import DropPath
+except ImportError as e:
+    from timm.models.layers import DropPath
 
 from ..builder import MODELS
 from .basic_modules import DWMlp, GLUMBConv, MBConvPreGLU, Mlp
