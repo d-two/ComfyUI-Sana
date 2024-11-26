@@ -2,6 +2,10 @@ ComfyUI-Node:
 
 
 Original Repo:
-
+https://github.com/NVlabs/Sana
 
 Huggingface:
+dit: https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px
+vae: https://huggingface.co/mit-han-lab/dc-ae-f32c32-in-1.0
+text_encoder: https://huggingface.co/unsloth/gemma-2-2b-it
+text_encoder_4bit: https://huggingface.co/unsloth/gemma-2-2b-it-bnb-4bit

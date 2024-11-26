@@ -190,19 +190,17 @@ class UL_SanaModelLoader:
             text_encoder_model = None
             text_encoder = T5EncoderModel.from_pretrained(text_encoder_dir, torch_dtype=dtype)
         else:
-            from transformers import AutoTokenizer, AutoModelForCausalLM#, BitsAndBytesConfig#, Gemma2ForCausalLM, Gemma2Config
-            # bnb_config = BitsAndBytesConfig(
-            #     load_in_4bit=True,
-            #     bnb_4bit_quant_type="nf4",
-            #     bnb_4bit_use_double_quant=False,
-            # )
+            from transformers import AutoTokenizer, AutoModelForCausalLM#, Gemma2ForCausalLM, Gemma2Config, GemmaTokenizerFast
             tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
-            # config = Gemma2Config.from_json_file()
+            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            # tokenizer = GemmaTokenizerFast.from_pretrained(gemma2_tokenizer_dir)
+            # config = Gemma2Config.from_json_file(gemma2_config_path)
             # text_encoder_model = Gemma2ForCausalLM(**config)
-            # state_dict = load_torch_file(text_encoder_path)
+            # state_dict = load_torch_file(gemma2_model_path, safe_load=True)
             # text_encoder_model.load_state_dict()
+            # text_encoder_model.to(dtype)
             tokenizer.padding_side = "right"
-            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)# if clip_type == 'gemma-2-2b-it' else AutoModelForCausalLM.from_pretrained(text_encoder_dir,quantization_config=bnb_config, torch_dtype=dtype)
+            
             text_encoder = text_encoder_model.get_decoder()
         
         if clip_init_device:
@@ -241,7 +239,7 @@ class UL_SanaModelLoader:
         
         unet = build_model(config.model.model, **model_kwargs)
         unet.to(dtype)
-        state_dict = load_torch_file(unet_path)
+        state_dict = load_torch_file(unet_path, safe_load=True)
         state_dict = state_dict.get("state_dict", state_dict)
         if "pos_embed" in state_dict:
             del state_dict["pos_embed"]
