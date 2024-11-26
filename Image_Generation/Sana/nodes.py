@@ -272,6 +272,7 @@ class UL_SanaTextEncode:
                 "sana_clip": ("Sana_Clip", {"tooltip": "The CLIP model used for encoding the text."}),
                 "text": ("STRING", {"default": "A wide shot of (cat) wearing (jacket) with boston city in background, masterpiece, best quality, high quality, 4K, highly detailed, extremely detailed, HD, ", "multiline": True, "dynamicPrompts": True, "tooltip": "The text to be encoded."}), 
                 "n_text": ("STRING", {"default": "watermark, author name, monochrome, lowres, bad anatomy, worst quality, low quality, username.", "multiline": True, "dynamicPrompts": True, "tooltip": "The text to be encoded."}), 
+                'preset_styles': (STYLE_NAMES, ),
             },
         }
     RETURN_TYPES = ("Sana_Conditionings", "STRING", "STRING", )
@@ -282,12 +283,13 @@ class UL_SanaTextEncode:
     OUTPUT_TOOLTIPS = ("A conditioning containing the embedded text used to guide the diffusion model.",)
     DESCRIPTION = "Encodes a text prompt using a CLIP model into an embedding that can be used to guide the diffusion model towards generating specific images."
 
-    def encode(self, text, n_text, sana_clip=None):
+    def encode(self, text, n_text, preset_styles, sana_clip=None):
         from .diffusion.model.utils import prepare_prompt_ar
         from .diffusion.data.datasets.utils import ASPECT_RATIO_512_TEST, ASPECT_RATIO_1024_TEST, ASPECT_RATIO_2048_TEST
         base_ratios = eval(f"ASPECT_RATIO_{1024}_TEST")
         tokenizer = sana_clip['tokenizer']
         text_encoder = sana_clip['text_encoder']
+        text, n_text = apply_style(preset_styles, text, n_text)
         
         try:
             text_encoder.to(device)
@@ -372,3 +374,71 @@ def get_dtype_by_name(dtype, debug: bool=False):
 
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
+
+style_list = [
+    {
+        "name": "(No style)",
+        "prompt": "{prompt}",
+        "negative_prompt": "",
+    },
+    {
+        "name": "Cinematic",
+        "prompt": "cinematic still {prompt} . emotional, harmonious, vignette, highly detailed, high budget, bokeh, "
+        "cinemascope, moody, epic, gorgeous, film grain, grainy",
+        "negative_prompt": "anime, cartoon, graphic, text, painting, crayon, graphite, abstract, glitch, deformed, mutated, ugly, disfigured",
+    },
+    {
+        "name": "Photographic",
+        "prompt": "cinematic photo {prompt} . 35mm photograph, film, bokeh, professional, 4k, highly detailed",
+        "negative_prompt": "drawing, painting, crayon, sketch, graphite, impressionist, noisy, blurry, soft, deformed, ugly",
+    },
+    {
+        "name": "Anime",
+        "prompt": "anime artwork {prompt} . anime style, key visual, vibrant, studio anime,  highly detailed",
+        "negative_prompt": "photo, deformed, black and white, realism, disfigured, low contrast",
+    },
+    {
+        "name": "Manga",
+        "prompt": "manga style {prompt} . vibrant, high-energy, detailed, iconic, Japanese comic style",
+        "negative_prompt": "ugly, deformed, noisy, blurry, low contrast, realism, photorealistic, Western comic style",
+    },
+    {
+        "name": "Digital Art",
+        "prompt": "concept art {prompt} . digital artwork, illustrative, painterly, matte painting, highly detailed",
+        "negative_prompt": "photo, photorealistic, realism, ugly",
+    },
+    {
+        "name": "Pixel art",
+        "prompt": "pixel-art {prompt} . low-res, blocky, pixel art style, 8-bit graphics",
+        "negative_prompt": "sloppy, messy, blurry, noisy, highly detailed, ultra textured, photo, realistic",
+    },
+    {
+        "name": "Fantasy art",
+        "prompt": "ethereal fantasy concept art of  {prompt} . magnificent, celestial, ethereal, painterly, epic, "
+        "majestic, magical, fantasy art, cover art, dreamy",
+        "negative_prompt": "photographic, realistic, realism, 35mm film, dslr, cropped, frame, text, deformed, "
+        "glitch, noise, noisy, off-center, deformed, cross-eyed, closed eyes, bad anatomy, ugly, "
+        "disfigured, sloppy, duplicate, mutated, black and white",
+    },
+    {
+        "name": "Neonpunk",
+        "prompt": "neonpunk style {prompt} . cyberpunk, vaporwave, neon, vibes, vibrant, stunningly beautiful, crisp, "
+        "detailed, sleek, ultramodern, magenta highlights, dark purple shadows, high contrast, cinematic, "
+        "ultra detailed, intricate, professional",
+        "negative_prompt": "painting, drawing, illustration, glitch, deformed, mutated, cross-eyed, ugly, disfigured",
+    },
+    {
+        "name": "3D Model",
+        "prompt": "professional 3d model {prompt} . octane render, highly detailed, volumetric, dramatic lighting",
+        "negative_prompt": "ugly, deformed, noisy, low poly, blurry, painting",
+    },
+]
+
+styles = {k["name"]: (k["prompt"], k["negative_prompt"]) for k in style_list}
+STYLE_NAMES = list(styles.keys())
+
+def apply_style(style_name: str, positive: str, negative: str = "") -> tuple[str, str]:
+    p, n = styles.get(style_name, styles[style_name])
+    if not negative:
+        negative = ""
+    return p.replace("{prompt}", positive), n + negative
