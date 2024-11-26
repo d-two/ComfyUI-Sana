@@ -20,17 +20,17 @@ class UL_SanaVAEProcess:
             "required": { 
                 "vae": ("Sana_VAE", )
             },
-            'optional': {
-                'latent': ('LATENT', ),
-                'image': ('IMAGE', ),
+            "optional": {
+                "latent": ("LATENT", ),
+                "image": ("IMAGE", ),
             }
         }
-    RETURN_TYPES = ("LATENT", 'IMAGE', )
-    RETURN_NAMES = ('latent', "image", )
+    RETURN_TYPES = ("LATENT", "IMAGE", )
+    RETURN_NAMES = ("latent", "image", )
     FUNCTION = "process"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana VAE Process"
-    OUTPUT_TOOLTIPS = ('Sana VAE Outputs.', )
+    OUTPUT_TOOLTIPS = ("Sana VAE Outputs.", )
     DESCRIPTION = "WIP."
 
     def process(self, vae, latent=None, image=None):
@@ -65,7 +65,7 @@ class UL_SanaSampler:
             "required": 
                 {
                 "model": ("Sana_Model", ),
-                'sana_conds': ('Sana_Conditionings', ),
+                "sana_conds": ("Sana_Conditionings", ),
                 "seed": ("INT", {"default": 88888888, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "steps": ("INT", {"default": 18, "min": 1, "max": 100}),
                 "cfg": ("FLOAT", {"default": 5, "min": 0.00, "max": 99.00, "step": 0.01}),
@@ -77,17 +77,17 @@ class UL_SanaSampler:
                 "keep_model_device": ("BOOLEAN", {"default": True, "label_on": "comfy", "label_off": "device", "tooltip": "Keep model in comfy_auto_unet_offload_device (HIGH_VRAM: device, Others: cpu) or device_memory after generation.\n生图完成后，模型转移到comfy自动选择设备(HIGH_VRAM: device, 其他: cpu)或者保留在设备专用内存上。"}),
                 # "output_type": ("BOOLEAN", {"default": True, "label_on": "latent", "label_off": "image"}),
                 },
-                'optional': {
-                    'latent': ('LATENT', ),
+                "optional": {
+                    "latent": ("LATENT", ),
                 }
             }
 
-    RETURN_TYPES = ('LATENT', "IMAGE", )
-    RETURN_NAMES = ('latent', "image", )
+    RETURN_TYPES = ("LATENT", "IMAGE", )
+    RETURN_NAMES = ("latent", "image", )
     FUNCTION = "sampler"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana Sampler"
-    OUTPUT_TOOLTIPS = ('Sana Samples.', )
+    OUTPUT_TOOLTIPS = ("Sana Samples.", )
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
     def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, output_type=False, latent=None):
@@ -138,20 +138,20 @@ class UL_SanaModelLoader:
     @classmethod
     def INPUT_TYPES(s):
         return {
-            'required': {
+            "required": {
                 "unet_name": (folder_paths.get_filename_list("diffusion_models"), ),
-                "clip_type": (["gemma-2-2b-it", 'gemma-2-2b-it-bnb-4bit',"Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
+                "clip_type": (["gemma-2-2b-it", "gemma-2-2b-it-bnb-4bit","Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
                 "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
-                "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", 'tooltip': 'For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption.'}),
+                "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", "tooltip": "For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption."}),
             },
         }
 
-    RETURN_TYPES = ("Sana_Model", 'Sana_Clip', 'Sana_VAE',)
-    RETURN_NAMES = ("model", 'clip', 'vae',)
+    RETURN_TYPES = ("Sana_Model", "Sana_Clip", "Sana_VAE",)
+    RETURN_NAMES = ("model", "clip", "vae",)
     FUNCTION = "loader"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana Model Loader"
-    OUTPUT_TOOLTIPS = ('Sana Models.', )
+    OUTPUT_TOOLTIPS = ("Sana Models.", )
     DESCRIPTION = "If 16gb ram, it needs lot of time to init models."
     
     def loader(self, unet_name, clip_type, weight_dtype, clip_init_device):
@@ -165,7 +165,7 @@ class UL_SanaModelLoader:
         dtype = get_dtype_by_name(weight_dtype)
         unet_path = folder_paths.get_full_path_or_raise("diffusion_models", unet_name)
         vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
-        # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
+        vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
         if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
             snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
         
@@ -176,7 +176,7 @@ class UL_SanaModelLoader:
                 snapshot_download('unsloth/gemma-2-2b-it', local_dir=text_encoder_dir)
         elif clip_type == 'gemma-2-2b-it-bnb-4bit':
             text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it-bnb-4bit')
-            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it-bnb-4bit'
+            text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it-bnb-4bit'
             if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
                 snapshot_download('unsloth/gemma-2-2b-it-bnb-4bit', local_dir=text_encoder_dir)
         else:
@@ -272,7 +272,7 @@ class UL_SanaTextEncode:
                 "sana_clip": ("Sana_Clip", {"tooltip": "The CLIP model used for encoding the text."}),
                 "text": ("STRING", {"default": "A wide shot of (cat) wearing (jacket) with boston city in background, masterpiece, best quality, high quality, 4K, highly detailed, extremely detailed, HD, ", "multiline": True, "dynamicPrompts": True, "tooltip": "The text to be encoded."}), 
                 "n_text": ("STRING", {"default": "watermark, author name, monochrome, lowres, bad anatomy, worst quality, low quality, username.", "multiline": True, "dynamicPrompts": True, "tooltip": "The text to be encoded."}), 
-                'preset_styles': (STYLE_NAMES, ),
+                "preset_styles": (STYLE_NAMES, ),
             },
         }
     RETURN_TYPES = ("Sana_Conditionings", "STRING", "STRING", )
