@@ -279,7 +279,7 @@ class UL_SanaTextEncode:
     RETURN_TYPES = ("Sana_Conditionings", "STRING", "STRING", )
     RETURN_NAMES = ("sana_conds", "prompt", "n_prompt", )
     FUNCTION = "encode"
-    CATEGORY = "UL Group/Diffusers Common"
+    CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana Text Encoder"
     OUTPUT_TOOLTIPS = ("A conditioning containing the embedded text used to guide the diffusion model.",)
     DESCRIPTION = "Encodes a text prompt using a CLIP model into an embedding that can be used to guide the diffusion model towards generating specific images."

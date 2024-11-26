@@ -1,8 +1,10 @@
-mmcv
+mmcv-full
 pyrallis
 ipdb
 accelerate
 diffusers
-clip
+open_clip_torch
 timm
 xformers
+numpy<2
+pillow
