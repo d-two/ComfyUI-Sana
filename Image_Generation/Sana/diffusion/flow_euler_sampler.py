@@ -21,6 +21,7 @@ from diffusers import FlowMatchEulerDiscreteScheduler
 from diffusers.models.modeling_outputs import Transformer2DModelOutput
 from diffusers.pipelines.stable_diffusion_3.pipeline_stable_diffusion_3 import retrieve_timesteps
 from tqdm import tqdm
+from comfy.utils import ProgressBar
 
 
 class FlowEuler:
@@ -42,6 +43,7 @@ class FlowEuler:
         if do_classifier_free_guidance:
             prompt_embeds = torch.cat([self.uncondition, self.condition], dim=0)
 
+        comfy_pbar = ProgressBar(steps)
         for i, t in tqdm(list(enumerate(timesteps)), disable=os.getenv("DPM_TQDM", "False") == "True"):
 
             # expand the latents if we are doing classifier free guidance
@@ -70,5 +72,7 @@ class FlowEuler:
 
             if latents.dtype != latents_dtype:
                 latents = latents.to(latents_dtype)
+            
+            comfy_pbar.update(1)
 
         return latents

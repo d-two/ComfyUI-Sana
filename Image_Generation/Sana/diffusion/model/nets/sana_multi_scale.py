@@ -281,9 +281,9 @@ class SanaMS(Sana):
         y: (N, 1, 120, C) tensor of class labels
         """
         bs = x.shape[0]
-        dtype = x.dtype
-        timestep = timestep.to(dtype)
-        y = y.to(dtype)
+        x = x.to(self.dtype)
+        timestep = timestep.to(self.dtype)
+        y = y.to(self.dtype)
         self.h, self.w = x.shape[-2] // self.patch_size, x.shape[-1] // self.patch_size
         if self.use_pe:
             x = self.x_embedder(x)
@@ -299,7 +299,7 @@ class SanaMS(Sana):
                     )
                     .unsqueeze(0)
                     .to(x.device)
-                    .to(dtype)
+                    .to(self.dtype)
                 )
             x += self.pos_embed_ms  # (N, T, D), where T = H * W / patch_size ** 2
         else:

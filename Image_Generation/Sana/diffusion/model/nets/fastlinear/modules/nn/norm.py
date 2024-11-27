@@ -183,7 +183,8 @@ def set_norm_eps(model: nn.Module, eps: float or None = None, momentum: float or
 try:
     from apex.normalization import FusedRMSNorm as RMSNorm
 except ImportError:
-    warnings.warn("Cannot import apex RMSNorm, switch to vanilla implementation")
+    pass
+    # warnings.warn("Cannot import apex RMSNorm, switch to vanilla implementation")
 
     class RMSNorm(torch.nn.Module):
         def __init__(self, dim: int, scale_factor=1.0, eps: float = 1e-6):

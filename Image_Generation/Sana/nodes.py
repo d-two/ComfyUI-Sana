@@ -72,6 +72,7 @@ class UL_SanaSampler:
                 "pag": ("FLOAT", {"default": 2.0, "min": 0.00, "max": 99.00, "step": 0.01}),
                 "width": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
                 "height": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
+                "scheduler": (['flow_dpm-solver', 'flow_euler'], {"tooltip": "The scheduler controls how noise is gradually removed to form the image."}),
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 960}),
                 "keep_model_loaded": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Warning: do not delete model unless this node no longer needed, it will try release device_memory and ram. if checked and want to continue node generation, use ComfyUI-Manager `Free model and node cache` to reset node state or change parameter in Loader node to activate.\n注意：仅在这个节点不再需要时删除模型，将尽量尝试释放系统内存和设备专用内存。如果删除后想继续使用此节点，使用ComfyUI-Manager插件的`Free model and node cache`重置节点状态或者更换模型加载节点的参数来激活。"}),
                 "keep_model_device": ("BOOLEAN", {"default": True, "label_on": "comfy", "label_off": "device", "tooltip": "Keep model in comfy_auto_unet_offload_device (HIGH_VRAM: device, Others: cpu) or device_memory after generation.\n生图完成后，模型转移到comfy自动选择设备(HIGH_VRAM: device, 其他: cpu)或者保留在设备专用内存上。"}),
@@ -90,7 +91,7 @@ class UL_SanaSampler:
     OUTPUT_TOOLTIPS = ("Sana Samples.", )
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
-    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, output_type=False, latent=None):
+    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, scheduler, output_type=False, latent=None):
         results = model['pipe'](
             conds=sana_conds,
             height=height,
@@ -101,6 +102,7 @@ class UL_SanaSampler:
             num_images_per_prompt=batch_size,
             generator=torch.Generator(device=device).manual_seed(seed),
             latents=None if latent == None else latent['samples'],
+            noise_scheduler=scheduler,
             output_type=output_type,
         )
         if keep_model_loaded and keep_model_device:
@@ -143,6 +145,7 @@ class UL_SanaModelLoader:
                 "clip_type": (["gemma-2-2b-it", "gemma-2-2b-it-bnb-4bit","Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
                 "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
                 "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", "tooltip": "For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption."}),
+                # "optimizer_type": ("BOOLEAN", {"default": True, "label_on": "AdamW", "label_off": "CAMEWrapper"}),
             },
         }
 
@@ -154,7 +157,7 @@ class UL_SanaModelLoader:
     OUTPUT_TOOLTIPS = ("Sana Models.", )
     DESCRIPTION = "If 16gb ram, it needs lot of time to init models."
     
-    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device):
+    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device, optimizer_type=True):
         from .diffusion.model.builder import build_model
         from .pipeline.sana_pipeline import SanaPipeline
         from huggingface_hub import snapshot_download
@@ -209,7 +212,7 @@ class UL_SanaModelLoader:
             except torch.cuda.OutOfMemoryError as e:
                 raise e
         
-        config_path = os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_1600M_img1024.yaml')
+        config_path = os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_1600M_img1024.yaml') if not optimizer_type else os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_1600M_img1024_AdamW.yaml')
         config = pyrallis.load(SanaConfig, open(config_path))
         
         pred_sigma = getattr(config.scheduler, "pred_sigma", True)

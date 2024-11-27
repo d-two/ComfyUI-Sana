@@ -2,7 +2,7 @@
 from typing import Tuple
 import torch
 import torch.nn as nn
-from ..diffusion import DPMS, FlowEuler
+from ..diffusion import DPMS, FlowEuler, SASolverSampler
 from ..diffusion.model.utils import resize_and_crop_tensor
 from diffusers.image_processor import PixArtImageProcessor
 from ..diffusion.data.datasets.utils import ASPECT_RATIO_512_TEST, ASPECT_RATIO_1024_TEST, ASPECT_RATIO_2048_TEST
@@ -41,7 +41,6 @@ class SanaPipeline(nn.Module):
         self.flow_shift = config.scheduler.flow_shift
         self.weight_dtype = weight_dtype
         self.base_ratios = eval(f"ASPECT_RATIO_{self.image_size}_TEST")
-        self.vis_sampler = self.config.scheduler.vis_sampler
         self.model = unet
         self.vae = vae
         self.vae_scale_factor = 32 if vae == None else 2 ** (len(self.vae.cfg.encoder.width_list) - 1)
@@ -59,6 +58,7 @@ class SanaPipeline(nn.Module):
         num_images_per_prompt=1,
         generator=torch.Generator().manual_seed(42),
         latents=None,
+        noise_scheduler='flow_dpm-solver',
         output_type=True,
     ):
         guidance_type = "classifier-free_PAG"
@@ -89,10 +89,10 @@ class SanaPipeline(nn.Module):
                         self.latent_size_w,
                         generator=generator,
                         device=self.device,
-                        dtype=self.weight_dtype,
                     )
                 else:
-                    z = (latents * self.vae.cfg.scaling_factor).to(self.weight_dtype).to(self.device)
+                    # z = (latents * self.vae.cfg.scaling_factor).to(self.device)
+                    z = latents.to(self.device)
                     
                 try:
                     self.model.to(device)
@@ -100,7 +100,7 @@ class SanaPipeline(nn.Module):
                     raise e
                 
                 model_kwargs = dict(data_info={"img_hw": hw, "aspect_ratio": ar}, mask=emb_masks)
-                if self.vis_sampler == "flow_euler":
+                if noise_scheduler == "flow_euler":
                     flow_solver = FlowEuler(
                         self.model,
                         condition=caption_embs,
@@ -112,7 +112,34 @@ class SanaPipeline(nn.Module):
                         z,
                         steps=num_inference_steps,
                     )
-                elif self.vis_sampler == "flow_dpm-solver":
+                elif noise_scheduler == "sa-solver":
+                    sa_solver = SASolverSampler(self.model, device=device)
+                    sample = sa_solver.sample(
+                        S=num_inference_steps,
+                        batch_size=n,
+                        shape=(self.config.vae.vae_latent_dim, self.latent_size_h, self.latent_size_w),
+                        eta=1,
+                        conditioning=caption_embs,
+                        unconditional_conditioning=null_y,
+                        unconditional_guidance_scale=guidance_scale,
+                        model_kwargs=model_kwargs,
+                    )[0]
+                elif noise_scheduler == "dpm-solver":
+                    dpm_solver = DPMS(
+                        self.model,
+                        condition=caption_embs,
+                        uncondition=null_y,
+                        cfg_scale=guidance_scale,
+                        model_kwargs=model_kwargs,
+                    )
+                    sample = dpm_solver.sample(
+                        z,
+                        steps=num_inference_steps,
+                        order=2,
+                        skip_type="time_uniform",
+                        method="multistep",
+                    )
+                elif noise_scheduler == "flow_dpm-solver":
                     scheduler = DPMS(
                         self.model,
                         condition=caption_embs,

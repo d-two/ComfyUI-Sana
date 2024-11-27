@@ -22,7 +22,7 @@ import numpy as np
 import torch
 
 from diffusion.utils.logger import get_root_logger
-from tools.download import find_model
+# from tools.download import find_model
 
 
 def save_checkpoint(
