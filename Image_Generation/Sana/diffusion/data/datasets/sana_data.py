@@ -30,7 +30,7 @@ from torch.utils.data import Dataset
 
 from ..builder import DATASETS, get_data_path
 from ..wids import ShardListDataset, ShardListDatasetMulti, lru_json_load
-from ...utils.logger import get_root_logger
+# from ...utils.logger import get_root_logger
 
 
 @DATASETS.register_module()
@@ -57,9 +57,10 @@ class SanaImgDataset(torch.utils.data.Dataset):
         if external_clipscore_suffixes is None:
             external_clipscore_suffixes = []
 
-        self.logger = (
-            get_root_logger() if config is None else get_root_logger(osp.join(config.work_dir, "train_log.log"))
-        )
+        # self.logger = (
+        #     get_root_logger() if config is None else get_root_logger(osp.join(config.work_dir, "train_log.log"))
+        # )
+        self.logger = print
         self.transform = transform if not load_vae_feat else None
         self.load_vae_feat = load_vae_feat
         self.load_text_feat = load_text_feat

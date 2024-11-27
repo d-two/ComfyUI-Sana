@@ -17,12 +17,16 @@
 import os
 import time
 
-from mmcv import Registry, build_from_cfg
+try:
+    from mmengine import Registry, build_from_cfg
+except ImportError as e:
+    from mmcv import Registry, build_from_cfg
+    
 from termcolor import colored
 from torch.utils.data import DataLoader
 
 from .transforms import get_transform
-from ..utils.logger import get_root_logger
+# from ..utils.logger import get_root_logger
 
 DATASETS = Registry("datasets")
 
@@ -49,7 +53,8 @@ def get_data_root_and_path(data_dir):
 
 
 def build_dataset(cfg, resolution=224, **kwargs):
-    logger = get_root_logger()
+    # logger = get_root_logger()
+    logger = print
 
     dataset_type = cfg.get("type")
     logger.info(f"Constructing dataset {dataset_type}...")

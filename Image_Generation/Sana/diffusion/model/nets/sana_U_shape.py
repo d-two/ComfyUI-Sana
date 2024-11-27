@@ -41,7 +41,7 @@ from .sana_blocks import (
 from ..norms import RMSNorm
 from ..utils import auto_grad_checkpoint
 from ...utils.import_utils import is_triton_module_available
-from ...utils.logger import get_root_logger
+# from ...utils.logger import get_root_logger
 
 _triton_modules_available = False
 if is_triton_module_available():
@@ -265,11 +265,11 @@ class SanaU(Sana):
 
         self.initialize_weights()
 
-        if config:
-            logger = get_root_logger(os.path.join(config.work_dir, "train_log.log"))
-            logger = logger.warning
-        else:
-            logger = print
+        # if config:
+        #     logger = get_root_logger(os.path.join(config.work_dir, "train_log.log"))
+        #     logger = logger.warning
+        # else:
+        logger = print
         logger(f"use pe: {use_pe}, position embed interpolation: {self.pe_interpolation}, base size: {self.base_size}")
         logger(
             f"attention type: {attn_type}; ffn type: {ffn_type}; "
