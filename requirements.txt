@@ -1,10 +1,12 @@
 mmcv==1.7.2
+mmengine
 pyrallis
 ipdb
 accelerate
-diffusers
+diffusers>0.31.0
 open_clip_torch
 timm
 xformers
 numpy<2
 pillow
+hugginface_hub<0.26.0
