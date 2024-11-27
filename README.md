@@ -3,11 +3,10 @@
 # Warning: 
 - A init node with lots of bugs, do not try unless interested.
 - ram will not released (tried but failed).
-- 4gb vram cuda device will oom in text_encoder with non-4bit, but retry works.
-- test on rtx cuda-device with win10+py311+torch 2.5.1+cu126.
+- pag not work in `flow_euler` scheduler.
+- test on rtx cuda-device with win10+py311+torch2.5.1+cuda126+mmcv: 1.7.2&2.2.0.
 ## Known issue:
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
-- pag not work in `flow_euler` scheduler.
 ## Hardware requirements:
 - ram & vram: 16+gb ram, init model needs lots of ram. 4gb vram at least.
 - text_encoder: gemma-2-2b-it ~ 5gb vram, gemma-2-2b-it-bnb-4bit ~ 2.3gb vram.
