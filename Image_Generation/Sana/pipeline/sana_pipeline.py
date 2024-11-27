@@ -166,6 +166,7 @@ class SanaPipeline(nn.Module):
             if not output_type:
                 if is_lowvram:
                     self.model.to(unet_offload_device())
+                soft_empty_cache(True)
                 self.vae.to(device)
                 
                 with torch.no_grad():
