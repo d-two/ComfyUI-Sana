@@ -166,10 +166,10 @@ class SanaPipeline(nn.Module):
             if not output_type:
                 if is_lowvram:
                     self.model.to(unet_offload_device())
-                soft_empty_cache(True)
                 self.vae.to(device)
                 
-                with torch.inference_mode():
+                with torch.no_grad():
+                # with torch.inference_mode():
                     sample = self.vae.decode(sample.detach() / self.vae.cfg.scaling_factor)
                 sample = resize_and_crop_tensor(sample, self.ori_width, self.ori_height)
                 samples = self.image_processor.postprocess(sample.cpu())
