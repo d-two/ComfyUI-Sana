@@ -50,7 +50,6 @@ def create_dc_ae_model_cfg(name: str, pretrained_path: Optional[str] = None) -> 
 class DCAE_HF(DCAE, PyTorchModelHubMixin):
     def __init__(self, model_name: str):
         cfg = create_dc_ae_model_cfg(model_name)
-        # print(f"\033[93m{cfg}\033[0m")
         DCAE.__init__(self, cfg)
 
 
