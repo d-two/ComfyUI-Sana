@@ -1,5 +1,6 @@
 # Unofficial custom-node for [SANA: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer](https://github.com/NVlabs/Sana)
 # Waiting for comfy official support [Add ⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer Support](https://github.com/comfyanonymous/ComfyUI/issues/5785)!
+# Sorry for the wrong links of vae_model, now should be right one.
 # Warning: 
 - A init node with lots of bugs, do not try unless interested.
 - ram will not released (tried but failed).
