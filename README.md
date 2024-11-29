@@ -19,8 +19,8 @@
 - https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px/blob/main/checkpoints/Sana_1600M_1024px.pth
 - https://hf-mirror.com/Efficient-Large-Model/Sana_1600M_1024px/blob/main/checkpoints/Sana_1600M_1024px.pth China mainland users.
 ## vae: autodownload or manual download or git from below links into `ComfyUI\models\vae`, rename folder_name to `models--mit-han-lab--dc-ae-f32c32-sana-1.0`.
-- https://huggingface.co/mit-han-lab/dc-ae-f32c32-in-1.0
-- https://hf-mirror.com/mit-han-lab/dc-ae-f32c32-in-1.0 China mainland users.
+- https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0
+- https://hf-mirror.com/mit-han-lab/dc-ae-f32c32-sana-1.0 China mainland users.
 ## text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it`.
 - https://huggingface.co/unsloth/gemma-2-2b-it
 - https://hf-mirror.com/unsloth/gemma-2-2b-it China mainland users.
