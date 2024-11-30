@@ -1,11 +1,10 @@
-mmengine
+mmengine>=0.3.0
 pyrallis
 ipdb
 accelerate
-diffusers
+diffusers>=0.0.27.post2
 open_clip_torch
 timm
-xformers
 numpy<2
 pillow
 # mmcv>=1.7.2

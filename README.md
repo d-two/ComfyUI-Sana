@@ -4,8 +4,7 @@
 # Warning: 
 - A init node with lots of bugs, do not try unless interested.
 - ram will not released (tried but failed).
-- pag not work in `flow_euler` scheduler.
-- test on rtx cuda-device with win10+py311+torch2.5.1+cuda126+diffusers(0.27~0.31)+mmengine(0.2~0.10.5).
+- test on rtx cuda-device with win10+py311+torch2.5.1+cuda126.
 ## Known issue:
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
 ## Hardware requirements:
