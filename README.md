@@ -29,3 +29,7 @@
 - https://hf-mirror.com/unsloth/gemma-2-2b-it-bnb-4bit China mainland users.
 # About requirements:
 - I only installed 2 modules, so i do not know what are really needed.
+## For xformers in comfyui with cuda-device, we need to install package from specified links, pip install default to be a cpu-version xformers.
+- cu124: https://download.pytorch.org/whl/cu124/xformers/
+- cu121: https://download.pytorch.org/whl/cu121/xformers/
+- cu118: https://download.pytorch.org/whl/cu118/xformers/
