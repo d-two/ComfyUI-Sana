@@ -1,4 +1,4 @@
-mmcv>=1.7.2
+mmengine
 pyrallis
 ipdb
 accelerate
@@ -8,3 +8,4 @@ timm
 xformers
 numpy<2
 pillow
+# mmcv>=1.7.2

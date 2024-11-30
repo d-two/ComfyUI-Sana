@@ -72,7 +72,7 @@ class UL_SanaSampler:
                 "pag": ("FLOAT", {"default": 2.0, "min": 0.00, "max": 99.00, "step": 0.01}),
                 "width": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
                 "height": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
-                "scheduler": (['flow_dpm-solver', 'flow_euler'], {"tooltip": "The scheduler controls how noise is gradually removed to form the image."}),
+                "scheduler": (['flow_dpm-solver'], {"tooltip": "The scheduler controls how noise is gradually removed to form the image."}),
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 960}),
                 "keep_model_loaded": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Warning: do not delete model unless this node no longer needed, it will try release device_memory and ram. if checked and want to continue node generation, use ComfyUI-Manager `Free model and node cache` to reset node state or change parameter in Loader node to activate.\n注意：仅在这个节点不再需要时删除模型，将尽量尝试释放系统内存和设备专用内存。如果删除后想继续使用此节点，使用ComfyUI-Manager插件的`Free model and node cache`重置节点状态或者更换模型加载节点的参数来激活。"}),
                 "keep_model_device": ("BOOLEAN", {"default": True, "label_on": "comfy", "label_off": "device", "tooltip": "Keep model in comfy_auto_unet_offload_device (HIGH_VRAM: device, Others: cpu) or device_memory after generation.\n生图完成后，模型转移到comfy自动选择设备(HIGH_VRAM: device, 其他: cpu)或者保留在设备专用内存上。"}),

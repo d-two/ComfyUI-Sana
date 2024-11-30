@@ -23,7 +23,7 @@ import os
 import pickle
 import shutil
 
-import mmcv
+# import mmcv
 import torch
 import torch.distributed as dist
 # from mmcv.runner import get_dist_info
