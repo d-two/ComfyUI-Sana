@@ -145,7 +145,7 @@ class UL_SanaModelLoader:
                 "clip_type": (["gemma-2-2b-it", "gemma-2-2b-it-bnb-4bit","Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
                 "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
                 "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", "tooltip": "For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption."}),
-                # "optimizer_type": ("BOOLEAN", {"default": True, "label_on": "AdamW", "label_off": "CAMEWrapper"}),
+                "clip_quantize": (["None", "8-bit", "4-bit"], {"tooltip": "For non quantized llm model."}),
             },
         }
 
@@ -157,7 +157,7 @@ class UL_SanaModelLoader:
     OUTPUT_TOOLTIPS = ("Sana Models.", )
     DESCRIPTION = "If 16gb ram, it needs lot of time to init models."
     
-    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device, optimizer_type=True):
+    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device, clip_quantize, optimizer_type=True):
         from .diffusion.model.builder import build_model
         from .pipeline.sana_pipeline import SanaPipeline
         from huggingface_hub import snapshot_download
@@ -167,6 +167,7 @@ class UL_SanaModelLoader:
         
         dtype = get_dtype_by_name(weight_dtype)
         unet_path = folder_paths.get_full_path_or_raise("diffusion_models", unet_name)
+        # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px.pth'
         vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
         # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
         if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
@@ -193,15 +194,20 @@ class UL_SanaModelLoader:
             text_encoder_model = None
             text_encoder = T5EncoderModel.from_pretrained(text_encoder_dir, torch_dtype=dtype)
         else:
-            from transformers import AutoTokenizer, AutoModelForCausalLM#, Gemma2ForCausalLM, Gemma2Config, GemmaTokenizerFast
+            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig#, Gemma2ForCausalLM, Gemma2Config, GemmaTokenizerFast
             tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
-            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            
+            quantization_config = BitsAndBytesConfig(load_in_8bit=True) if clip_quantize=='8-bit' else BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=dtype) if clip_quantize=='4-bit' else None
+            
+            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, quantization_config=quantization_config, torch_dtype=dtype) if clip_type != 'gemma-2-2b-it-bnb-4bit' else AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            
             # tokenizer = GemmaTokenizerFast.from_pretrained(gemma2_tokenizer_dir)
             # config = Gemma2Config.from_json_file(gemma2_config_path)
             # text_encoder_model = Gemma2ForCausalLM(**config)
             # state_dict = load_torch_file(gemma2_model_path, safe_load=True)
             # text_encoder_model.load_state_dict()
             # text_encoder_model.to(dtype)
+            
             tokenizer.padding_side = "right"
             
             text_encoder = text_encoder_model.get_decoder()
@@ -254,6 +260,7 @@ class UL_SanaModelLoader:
         clip = {
             'tokenizer': tokenizer,
             'text_encoder': text_encoder,
+            'text_encoder_model': text_encoder_model,
         }
         
         model = {
@@ -307,6 +314,14 @@ class UL_SanaTextEncode:
             return_tensors="pt",
         ).to(device)
         null_caption_embs = text_encoder(null_caption_token.input_ids, null_caption_token.attention_mask)[0]
+        
+        # messages = [
+        #     {"role": "user", "content": f"Translate {text} into english if it is not english."},
+        # ]
+        # text_ids = tokenizer.apply_chat_template(messages, return_tensors="pt", return_dict=True).to(device)
+        # text = sana_clip['text_encoder_model'].generate(**text_ids, max_new_tokens=256)
+        # text = tokenizer.decode(text[0])
+        # print(f"\033[93m{text}\033[0m")
         
         prompts = []
         with torch.no_grad():

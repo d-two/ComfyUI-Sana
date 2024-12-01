@@ -93,7 +93,10 @@ class MultiHeadCrossAttention(nn.Module):
             x = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0, is_causal=False)
             x = x.transpose(1, 2)
 
-        x = x.view(B, -1, C)
+        try:
+            x = x.view(B, -1, C)
+        except RuntimeError as e:
+            x = x.reshape(B, -1, C)
         x = self.proj(x)
         x = self.proj_drop(x)
 

@@ -4,6 +4,7 @@
 # Warning: 
 - A init node with lots of bugs, do not try unless interested.
 - ram will not released (tried but failed).
+- If select `gemma-2-2b-it` and `clip_quantize` te model will remains in vram.
 - test on rtx cuda-device with win10+py311+torch2.5.1+cuda126.
 ## Known issue:
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
@@ -24,12 +25,8 @@
 ## text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it`.
 - https://huggingface.co/unsloth/gemma-2-2b-it
 - https://hf-mirror.com/unsloth/gemma-2-2b-it China mainland users.
-### 4bit text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it-bnb-4bit`. It will remain 1.5gb in vram after text_encode, which can be freed by `ComfyUI-Manager` `Free model and node cache`.
+### 4bit text_encoder, less resource consumption: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it-bnb-4bit`. It will remain 1.5gb in vram after text_encode, which can be freed by `ComfyUI-Manager` `Free model and node cache`.
 - https://huggingface.co/unsloth/gemma-2-2b-it-bnb-4bit
 - https://hf-mirror.com/unsloth/gemma-2-2b-it-bnb-4bit China mainland users.
 # About requirements:
 - I only installed 2 modules, so i do not know what are really needed.
-## For xformers in comfyui with cuda-device, we need to install package from specified links, pip install default to be a cpu-version xformers.
-- cu124: https://download.pytorch.org/whl/cu124/xformers/
-- cu121: https://download.pytorch.org/whl/cu121/xformers/
-- cu118: https://download.pytorch.org/whl/cu118/xformers/
