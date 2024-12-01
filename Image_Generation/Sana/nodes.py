@@ -299,6 +299,24 @@ class UL_SanaTextEncode:
         base_ratios = eval(f"ASPECT_RATIO_{1024}_TEST")
         tokenizer = sana_clip['tokenizer']
         text_encoder = sana_clip['text_encoder']
+        
+        # llm = sana_clip['text_encoder_model'].eval().to(device)
+        # messages = [
+        #     {"role": "user", "content": f"Translate provided text into english if it is not english: {text}"},
+        # ]
+        # input_ids = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(device)
+        # if input_ids.shape[1] > 2048:
+        #     print(f"\033[93mTrimmed input from conversation as it was longer than 2048 tokens.\033[0m")
+        # text = llm.generate(input_ids=input_ids, max_new_tokens=1024, do_sample=True, top_p=0.9, top_k=50, temperature=0.6, num_beams=1, repetition_penalty=1.2)
+        # text = tokenizer.decode(text[0], skip_prompt=True, skip_special_tokens=True)
+        # prompt = f"Translate provided text into english if it is not english: {text}"
+        # input_ids = tokenizer.encode(prompt, add_special_tokens=False, return_tensors="pt")
+        # outputs = llm.generate(input_ids=input_ids.to(device), max_new_tokens=1024)
+        # text = tokenizer.decode(outputs[0])
+        # llm.to(text_encoder_offload_device())
+        
+        # print(f"\033[93m{text}\033[0m")
+        
         text, n_text = apply_style(preset_styles, text, n_text)
         
         try:
@@ -314,14 +332,6 @@ class UL_SanaTextEncode:
             return_tensors="pt",
         ).to(device)
         null_caption_embs = text_encoder(null_caption_token.input_ids, null_caption_token.attention_mask)[0]
-        
-        # messages = [
-        #     {"role": "user", "content": f"Translate {text} into english if it is not english."},
-        # ]
-        # text_ids = tokenizer.apply_chat_template(messages, return_tensors="pt", return_dict=True).to(device)
-        # text = sana_clip['text_encoder_model'].generate(**text_ids, max_new_tokens=256)
-        # text = tokenizer.decode(text[0])
-        # print(f"\033[93m{text}\033[0m")
         
         prompts = []
         with torch.no_grad():
