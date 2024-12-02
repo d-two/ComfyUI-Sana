@@ -97,8 +97,8 @@ class SanaPipeline(nn.Module):
                 else:
                     weight = torch.tensor(denoise_strength).unsqueeze(-1).unsqueeze(-1)
                     weight = weight.to(device, self.weight_dtype)
-                    z = (latents * self.vae_scaling_factor * weight).to(self.device, self.weight_dtype)
-                    # z = (latents * weight).to(self.device, self.weight_dtype)
+                    # z = (latents * self.vae_scaling_factor * weight).to(self.device, self.weight_dtype)
+                    z = (latents * weight).to(self.device, self.weight_dtype)
                     
                 try:
                     self.model.to(device)

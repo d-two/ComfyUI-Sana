@@ -42,11 +42,15 @@ class UL_SanaVAEProcess:
             from diffusers.image_processor import PixArtImageProcessor
             vae_scale_factor = 2 ** (len(vae.cfg.encoder.width_list) - 1)
             image_processor = PixArtImageProcessor(vae_scale_factor=vae_scale_factor)
-            width, height = latent['width'], latent['height']
+            if 'width' in str(latent.keys()):
+                width, height = latent['width'], latent['height']
+            else:
+                width = None
             latent = latent['samples'].to(device, dtype)
             with torch.inference_mode():
                 result = vae.decode(latent.detach() / vae.cfg.scaling_factor)
-            result = image_processor.resize_and_crop_tensor(result, width, height)
+            if width != None:
+                result = image_processor.resize_and_crop_tensor(result, width, height)
             result = image_processor.postprocess(result.cpu())
             results = []
             for img in result:
@@ -54,7 +58,7 @@ class UL_SanaVAEProcess:
             result = torch.cat(results, dim=0)
         elif image != None: # encode
             import torchvision.transforms as transforms
-            from .diffusion.model.dc_ae.efficientvit.apps.utils.image import DMCrop
+            # from .diffusion.model.dc_ae.efficientvit.apps.utils.image import DMCrop
             image_np = image.squeeze().mul(255).clamp(0, 255).byte().numpy()
             image = Image.fromarray(image_np, mode='RGB')
             
@@ -68,6 +72,7 @@ class UL_SanaVAEProcess:
             with torch.inference_mode():
                 # latent = vae.encode(image.to(device, dtype))
                 latent = vae.encode(x)
+                latent = latent * vae.cfg.scaling_factor
             result = image
         vae.to(vae_offload_device())
         soft_empty_cache(True)
@@ -157,9 +162,11 @@ class UL_SanaSampler:
 class UL_SanaModelLoader:
     @classmethod
     def INPUT_TYPES(s):
+        vaes = folder_paths.get_filename_list("vae")
         return {
             "required": {
                 "unet_name": (folder_paths.get_filename_list("diffusion_models"), ),
+                "vae_name": (vaes, ),
                 "clip_type": (["gemma-2-2b-it", "gemma-2-2b-it-bnb-4bit","Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
                 "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
                 "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", "tooltip": "For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption."}),
@@ -175,11 +182,12 @@ class UL_SanaModelLoader:
     OUTPUT_TOOLTIPS = ("Sana Models.", )
     DESCRIPTION = "If 16gb ram, it needs lot of time to init models."
     
-    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device, clip_quantize):
+    def loader(self, unet_name, vae_name, clip_type, weight_dtype, clip_init_device, clip_quantize):
         from .diffusion.model.builder import build_model
         from .pipeline.sana_pipeline import SanaPipeline
         from huggingface_hub import snapshot_download
-        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import DCAE_HF
+        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg#, DCAE_HF
+        from .diffusion.model.dc_ae.efficientvit.models.efficientvit.dc_ae import DCAE
         import pyrallis
         from .diffusion.utils.config import SanaConfig
         
@@ -188,10 +196,11 @@ class UL_SanaModelLoader:
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px.pth'
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px_MultiLing.pth'
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_600M_1024px_MultiLing.pth'
-        vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
+        
+        # vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
         # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
-        if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
-            snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
+        # if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
+        #     snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
         
         if clip_type == 'gemma-2-2b-it':
             text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it')
@@ -206,7 +215,16 @@ class UL_SanaModelLoader:
         else:
             raise ValueError('Not implemented!')
         
-        vae = DCAE_HF.from_pretrained(vae_dir).to(dtype).eval()
+        # vae = DCAE_HF.from_pretrained(vae_dir).to(dtype).eval()
+        
+        vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
+        # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
+        cfg = create_dc_ae_model_cfg('dc-ae-f32c32-sana-1.0')
+        vae = DCAE(cfg)
+        state_dict = load_torch_file(vae_path, safe_load=True)
+        vae.load_state_dict(state_dict, strict=False)
+        state_dict = None
+        vae.to(dtype).eval()
         
         if "T5" in clip_type:
             from transformers import T5Tokenizer, T5EncoderModel
@@ -387,18 +405,67 @@ class UL_SanaTextEncode:
         
         return ([caption_embs, null_y, emb_masks], text, n_text, )
         
+class UL_SanaVAELoader:
+    @classmethod
+    def INPUT_TYPES(s):
+        vaes = folder_paths.get_filename_list("vae")
+        return {
+            "required": {
+                "vae_name": (vaes, ),
+                "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
+            },
+        }
+
+    RETURN_TYPES = ("Sana_VAE",)
+    RETURN_NAMES = ("vae",)
+    FUNCTION = "loader"
+    CATEGORY = "UL Group/Image Generation"
+    TITLE = "Sana VAE Loader(TestOnly)"
+    OUTPUT_TOOLTIPS = ("Sana VAE: DCAE.", )
+    DESCRIPTION = "For test only."
+    
+    def loader(self, vae_name, weight_dtype):
+        # from huggingface_hub import snapshot_download
+        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg#, DCAE_HF
+        from .diffusion.model.dc_ae.efficientvit.models.efficientvit.dc_ae import DCAE
+        
+        dtype = get_dtype_by_name(weight_dtype)
+        # vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
+        # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
+        # if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
+        #     snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
+        
+        # vae = DCAE_HF.from_pretrained(vae_dir).to(dtype).eval()
+        
+        vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
+        # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
+        cfg = create_dc_ae_model_cfg('dc-ae-f32c32-sana-1.0')
+        vae = DCAE(cfg)
+        state_dict = load_torch_file(vae_path, safe_load=True)
+        vae.load_state_dict(state_dict, strict=False)
+        state_dict = None
+        vae.to(dtype).eval()
+        
+        out_vae = {
+            'vae': vae,
+            'dtype': dtype,
+        }
+        
+        return (out_vae, )
         
 NODE_CLASS_MAPPINGS = {
     "UL_SanaSampler": UL_SanaSampler,
     "UL_SanaModelLoader": UL_SanaModelLoader,
     "UL_SanaTextEncode": UL_SanaTextEncode,
     "UL_SanaVAEProcess": UL_SanaVAEProcess,
+    "UL_SanaVAELoader": UL_SanaVAELoader,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "Sana Sampler": "UL_SanaSampler",
     "Sana Model Loader": "UL_SanaModelLoader",
     "Sana Text Encoder": "UL_SanaTextEncode",
     "Sana VAE Process": "UL_SanaVAEProcess",
+    "Sana VAE Loader(TestOnly)": "UL_SanaVAELoader",
 }
 
 preset_te_prompt = ['Given a user prompt, generate an "Enhanced prompt" that provides detailed visual descriptions suitable for image generation. Evaluate the level of detail in the user prompt:', '- If the prompt is simple, focus on adding specifics about colors, shapes, sizes, textures, and spatial relationships to create vivid and concrete scenes.', '- If the prompt is already detailed, refine and enhance the existing details slightly without overcomplicating.', 'Here are examples of how to transform or refine prompts:', '- User Prompt: A cat sleeping -> Enhanced: A small, fluffy white cat curled up in a round shape, sleeping peacefully on a warm sunny windowsill, surrounded by pots of blooming red flowers.', '- User Prompt: A busy city street -> Enhanced: A bustling city street scene at dusk, featuring glowing street lamps, a diverse crowd of people in colorful clothing, and a double-decker bus passing by towering glass skyscrapers.', 'Please generate only the enhanced description for the prompt below and avoid including any additional commentary or evaluations:', 'User Prompt: ']

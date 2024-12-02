@@ -20,9 +20,9 @@
 ## transformer: download model_file such as `Sana_1600M_512px_MultiLing.pth` from below links into `ComfyUI\models\unet`, only non-diffusers 1204px model(0.6b、1.6b including MultiLing) works in this custom-node for now.
 - https://huggingface.co/collections/Efficient-Large-Model/sana-673efba2a57ed99843f11f9e
 - https://hf-mirror.com/collections/Efficient-Large-Model/sana-673efba2a57ed99843f11f9e China mainland users.
-## vae: autodownload or manual download or git from below links into `ComfyUI\models\vae`, rename folder_name to `models--mit-han-lab--dc-ae-f32c32-sana-1.0`.
-- https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0
-- https://hf-mirror.com/mit-han-lab/dc-ae-f32c32-sana-1.0 China mainland users.
+## vae: download from below links into `ComfyUI\models\vae`, rename model_name to any.
+- https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0/blob/main/model.safetensors
+- https://hf-mirror.com/mit-han-lab/dc-ae-f32c32-sana-1.0/blob/main/model.safetensors China mainland users.
 ## text_encoder: autodownload or manual download or git from below links into `ComfyUI\models\text_encoders`, rename folder_name to `models--unsloth--gemma-2-2b-it`.
 - https://huggingface.co/unsloth/gemma-2-2b-it
 - https://hf-mirror.com/unsloth/gemma-2-2b-it China mainland users.
