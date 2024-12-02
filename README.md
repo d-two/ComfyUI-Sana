@@ -10,7 +10,7 @@
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
 - Image2image not work.
 ## Hardware requirements:
-- ram & vram: init 1.6b model needs lots of ram, 2gb vram for denoise latent (inference).
+- ram & vram: init 1.6b model needs lots of ram (16+gb sys ram recommended), minimal 2gb vram for 0.6b denoise latent (inference).
 - text_encoder: gemma-2-2b-it ~ 5gb vram, gemma-2-2b-it-bnb-4bit ~ 2.3gb vram.
 - dit: 0.6b: ~ 1.5gb vram and faster, 1.6b: ~ 3.5gb vram.
 - vae: ~ 3.1gb vram for 4k.
