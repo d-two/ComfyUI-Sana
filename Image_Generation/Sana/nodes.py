@@ -34,6 +34,7 @@ class UL_SanaVAEProcess:
     DESCRIPTION = "WIP."
 
     def process(self, vae, latent=None, image=None):
+        vae, dtype = vae['vae'], vae['dtype']
         vae.to(device)
         if latent != None and image != None:
             raise ValueError('......')
@@ -41,22 +42,37 @@ class UL_SanaVAEProcess:
             from diffusers.image_processor import PixArtImageProcessor
             vae_scale_factor = 2 ** (len(vae.cfg.encoder.width_list) - 1)
             image_processor = PixArtImageProcessor(vae_scale_factor=vae_scale_factor)
-            vae.to(latent['samples'].dtype)
+            width, height = latent['width'], latent['height']
+            latent = latent['samples'].to(device, dtype)
             with torch.inference_mode():
-                result = vae.decode(latent['samples'].detach() / vae.cfg.scaling_factor)
+                result = vae.decode(latent.detach() / vae.cfg.scaling_factor)
+            result = image_processor.resize_and_crop_tensor(result, width, height)
             result = image_processor.postprocess(result.cpu())
             results = []
             for img in result:
                 results.append(pil2tensor(img))
             result = torch.cat(results, dim=0)
-        elif image != None:
+        elif image != None: # encode
+            import torchvision.transforms as transforms
+            from .diffusion.model.dc_ae.efficientvit.apps.utils.image import DMCrop
+            image_np = image.squeeze().mul(255).clamp(0, 255).byte().numpy()
+            image = Image.fromarray(image_np, mode='RGB')
+            
+            transform = transforms.Compose([
+                # DMCrop(1024), # resolution
+                transforms.ToTensor(),
+                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ])
+            x = transform(image)[None].to(device, dtype)
+            # image = image.permute(0, 3, 1, 2)
             with torch.inference_mode():
-                latent = vae.encode(image)
-                latent = latent.latent_dist.sample()
+                # latent = vae.encode(image.to(device, dtype))
+                latent = vae.encode(x)
+            result = image
         vae.to(vae_offload_device())
         soft_empty_cache(True)
         
-        return ( result, {"samples": latent}, )
+        return ( {"samples": latent}, result, )
 
 class UL_SanaSampler:
     @classmethod
@@ -74,12 +90,13 @@ class UL_SanaSampler:
                 "height": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
                 "scheduler": (['flow_dpm-solver'], {"tooltip": "The scheduler controls how noise is gradually removed to form the image."}),
                 "batch_size": ("INT", {"default": 1, "min": 1, "max": 960}),
+                "output_type": ("BOOLEAN", {"default": False, "label_on": "latent", "label_off": "image"}),
                 "keep_model_loaded": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Warning: do not delete model unless this node no longer needed, it will try release device_memory and ram. if checked and want to continue node generation, use ComfyUI-Manager `Free model and node cache` to reset node state or change parameter in Loader node to activate.\n注意：仅在这个节点不再需要时删除模型，将尽量尝试释放系统内存和设备专用内存。如果删除后想继续使用此节点，使用ComfyUI-Manager插件的`Free model and node cache`重置节点状态或者更换模型加载节点的参数来激活。"}),
                 "keep_model_device": ("BOOLEAN", {"default": True, "label_on": "comfy", "label_off": "device", "tooltip": "Keep model in comfy_auto_unet_offload_device (HIGH_VRAM: device, Others: cpu) or device_memory after generation.\n生图完成后，模型转移到comfy自动选择设备(HIGH_VRAM: device, 其他: cpu)或者保留在设备专用内存上。"}),
-                # "output_type": ("BOOLEAN", {"default": True, "label_on": "latent", "label_off": "image"}),
                 },
                 "optional": {
                     "latent": ("LATENT", ),
+                    "denoise_strength": ("FLOAT", {"default": 1.00, "min": 0.00, "max": 1.00, "step": 0.01, "tooltip": "For latent input."}),
                 }
             }
 
@@ -91,7 +108,7 @@ class UL_SanaSampler:
     OUTPUT_TOOLTIPS = ("Sana Samples.", )
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
-    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, scheduler, output_type=False, latent=None):
+    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, scheduler, output_type=False, latent=None, denoise_strength=1):
         results = model['pipe'](
             conds=sana_conds,
             height=height,
@@ -102,6 +119,7 @@ class UL_SanaSampler:
             num_images_per_prompt=batch_size,
             generator=torch.Generator(device=device).manual_seed(seed),
             latents=None if latent == None else latent['samples'],
+            denoise_strength=denoise_strength,
             noise_scheduler=scheduler,
             output_type=output_type,
         )
@@ -126,8 +144,8 @@ class UL_SanaSampler:
                 pil_results.append(pil2tensor(img))
             pil_results = torch.cat(pil_results, dim=0)
 
-            empty_latent = torch.zeros([1, 4, height // 8, width // 8], device=device) # 创建empty latent供调试。
-            results = {"samples": empty_latent}
+            empty_latent = torch.zeros([1, 32, height // 32, width // 32], device=device) # 创建empty latent供调试。
+            results = {"samples": empty_latent, "width": 768, "height": 768}
         else:
             import random
             color_list = random.sample(range(0,255),4)
@@ -157,7 +175,7 @@ class UL_SanaModelLoader:
     OUTPUT_TOOLTIPS = ("Sana Models.", )
     DESCRIPTION = "If 16gb ram, it needs lot of time to init models."
     
-    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device, clip_quantize, optimizer_type=True):
+    def loader(self, unet_name, clip_type, weight_dtype, clip_init_device, clip_quantize):
         from .diffusion.model.builder import build_model
         from .pipeline.sana_pipeline import SanaPipeline
         from huggingface_hub import snapshot_download
@@ -168,6 +186,8 @@ class UL_SanaModelLoader:
         dtype = get_dtype_by_name(weight_dtype)
         unet_path = folder_paths.get_full_path_or_raise("diffusion_models", unet_name)
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px.pth'
+        # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px_MultiLing.pth'
+        # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_600M_1024px_MultiLing.pth'
         vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
         # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
         if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
@@ -218,7 +238,12 @@ class UL_SanaModelLoader:
             except torch.cuda.OutOfMemoryError as e:
                 raise e
         
-        config_path = os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_1600M_img1024.yaml') if not optimizer_type else os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_1600M_img1024_AdamW.yaml')
+        
+        state_dict = load_torch_file(unet_path, safe_load=True)
+        is_1600M = state_dict['final_layer.scale_shift_table'].shape[1]==2240 # 1.6b: 2240 0.6b: 1152
+        
+        config_path = os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_1600M_img1024_AdamW.yaml') if is_1600M else os.path.join(current_dir, 'configs', 'sana_config', '1024ms', 'Sana_600M_img1024.yaml')
+        
         config = pyrallis.load(SanaConfig, open(config_path))
         
         pred_sigma = getattr(config.scheduler, "pred_sigma", True)
@@ -248,12 +273,11 @@ class UL_SanaModelLoader:
         
         unet = build_model(config.model.model, **model_kwargs)
         unet.to(dtype)
-        state_dict = load_torch_file(unet_path, safe_load=True)
         state_dict = state_dict.get("state_dict", state_dict)
         if "pos_embed" in state_dict:
             del state_dict["pos_embed"]
         missing, unexpected = unet.load_state_dict(state_dict, strict=False)
-        del state_dict
+        state_dict = None
         unet.eval().to(dtype)
         pipe = SanaPipeline(config, vae, dtype, unet)
         
@@ -272,7 +296,12 @@ class UL_SanaModelLoader:
             'vae': vae,
         }
         
-        return (model, clip, vae, )
+        out_vae = {
+            'vae': vae,
+            'dtype': dtype,
+        }
+        
+        return (model, clip, out_vae, )
 
 class UL_SanaTextEncode:
     @classmethod

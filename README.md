@@ -1,4 +1,4 @@
-# Unofficial custom-node for [SANA: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer](https://github.com/NVlabs/Sana)
+# Unofficial wrapper custom-node for [SANA: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer](https://github.com/NVlabs/Sana)
 # Waiting for comfy official support [Add ⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer Support](https://github.com/comfyanonymous/ComfyUI/issues/5785)!
 # Sorry for the wrong links of vae_model, now should be right one.
 # Warning: 
@@ -8,17 +8,18 @@
 - test on rtx cuda-device with win10+py311+torch2.5.1+cuda126.
 ## Known issue:
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
+- Image2image not work.
 ## Hardware requirements:
-- ram & vram: 16+gb ram, init model needs lots of ram. 4gb vram at least.
+- ram & vram: init 1.6b model needs lots of ram, 2gb vram for denoise latent (inference).
 - text_encoder: gemma-2-2b-it ~ 5gb vram, gemma-2-2b-it-bnb-4bit ~ 2.3gb vram.
-- dit: ~ 3.5gb vram.
+- dit: 0.6b: ~ 1.5gb vram and faster, 1.6b: ~ 3.5gb vram.
 - vae: ~ 3.1gb vram for 4k.
-# workflow in `assets` dir ![](./assets/Img_Gen-Sana-wf.png)
+# workflow in `workflow` dir ![](./workflow/Img_Gen-Sana-wf.png)
 
 # Instruction:
-## dit: download from below links into `ComfyUI\models\unet`, only 1.6B-1204px works for now.
-- https://huggingface.co/Efficient-Large-Model/Sana_1600M_1024px/blob/main/checkpoints/Sana_1600M_1024px.pth
-- https://hf-mirror.com/Efficient-Large-Model/Sana_1600M_1024px/blob/main/checkpoints/Sana_1600M_1024px.pth China mainland users.
+## transformer: download model_file such as `Sana_1600M_512px_MultiLing.pth` from below links into `ComfyUI\models\unet`, only non-diffusers 1204px model(0.6b、1.6b including MultiLing) works in this custom-node for now.
+- https://huggingface.co/collections/Efficient-Large-Model/sana-673efba2a57ed99843f11f9e
+- https://hf-mirror.com/collections/Efficient-Large-Model/sana-673efba2a57ed99843f11f9e China mainland users.
 ## vae: autodownload or manual download or git from below links into `ComfyUI\models\vae`, rename folder_name to `models--mit-han-lab--dc-ae-f32c32-sana-1.0`.
 - https://huggingface.co/mit-han-lab/dc-ae-f32c32-sana-1.0
 - https://hf-mirror.com/mit-han-lab/dc-ae-f32c32-sana-1.0 China mainland users.

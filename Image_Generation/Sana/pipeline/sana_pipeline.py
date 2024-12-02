@@ -43,7 +43,8 @@ class SanaPipeline(nn.Module):
         self.base_ratios = eval(f"ASPECT_RATIO_{self.image_size}_TEST")
         self.model = unet
         self.vae = vae
-        self.vae_scale_factor = 32 if vae == None else 2 ** (len(self.vae.cfg.encoder.width_list) - 1)
+        self.vae_scale_factor = 32 if vae == None else 2 ** (len(self.vae.cfg.encoder.width_list) - 1) # upscale
+        self.vae_scaling_factor = 0.41407 if vae == None else self.vae.cfg.scaling_factor # down scale
         self.image_processor = PixArtImageProcessor(vae_scale_factor=self.vae_scale_factor)
 
     @torch.inference_mode()
@@ -58,11 +59,14 @@ class SanaPipeline(nn.Module):
         num_images_per_prompt=1,
         generator=torch.Generator().manual_seed(42),
         latents=None,
+        denoise_strength=1,
         noise_scheduler='flow_dpm-solver',
         output_type=True,
     ):
         guidance_type = "classifier-free_PAG"
         self.device = device
+        if latents != None:
+            width, height = latents.shape[3] * self.vae_scale_factor, latents.shape[2] * self.vae_scale_factor
         self.ori_height, self.ori_width = height, width
         self.height, self.width = classify_height_width_bin(height, width, ratios=self.base_ratios)
         self.latent_size_h, self.latent_size_w = (
@@ -91,8 +95,10 @@ class SanaPipeline(nn.Module):
                         device=self.device,
                     )
                 else:
-                    # z = (latents * self.vae.cfg.scaling_factor).to(self.device)
-                    z = latents.to(self.device)
+                    weight = torch.tensor(denoise_strength).unsqueeze(-1).unsqueeze(-1)
+                    weight = weight.to(device, self.weight_dtype)
+                    z = (latents * self.vae_scaling_factor * weight).to(self.device, self.weight_dtype)
+                    # z = (latents * weight).to(self.device, self.weight_dtype)
                     
                 try:
                     self.model.to(device)
@@ -177,7 +183,11 @@ class SanaPipeline(nn.Module):
                 
                 self.vae.to(vae_offload_device())
             else:
-                samples = {'samples': sample}
+                samples = {
+                    'samples': sample,
+                    'width': width,
+                    'height': height,
+                    }
                 
         return samples
 
