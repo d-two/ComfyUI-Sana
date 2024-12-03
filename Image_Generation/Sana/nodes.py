@@ -87,22 +87,16 @@ class UL_SanaSampler:
                 {
                 "model": ("Sana_Model", ),
                 "sana_conds": ("Sana_Conditionings", ),
+                "latent": ("LATENT", ),
                 "seed": ("INT", {"default": 88888888, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "steps": ("INT", {"default": 18, "min": 1, "max": 100}),
                 "cfg": ("FLOAT", {"default": 5, "min": 0.00, "max": 99.00, "step": 0.01}),
                 "pag": ("FLOAT", {"default": 2.0, "min": 0.00, "max": 99.00, "step": 0.01}),
-                "width": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
-                "height": ("INT", {"default": 1024,"min": 256, "max": 8196, "step": 1}),
                 "scheduler": (['flow_dpm-solver'], {"tooltip": "The scheduler controls how noise is gradually removed to form the image."}),
-                "batch_size": ("INT", {"default": 1, "min": 1, "max": 960}),
                 "output_type": ("BOOLEAN", {"default": False, "label_on": "latent", "label_off": "image"}),
                 "keep_model_loaded": ("BOOLEAN", {"default": True, "label_on": "yes", "label_off": "no", "tooltip": "Warning: do not delete model unless this node no longer needed, it will try release device_memory and ram. if checked and want to continue node generation, use ComfyUI-Manager `Free model and node cache` to reset node state or change parameter in Loader node to activate.\n注意：仅在这个节点不再需要时删除模型，将尽量尝试释放系统内存和设备专用内存。如果删除后想继续使用此节点，使用ComfyUI-Manager插件的`Free model and node cache`重置节点状态或者更换模型加载节点的参数来激活。"}),
                 "keep_model_device": ("BOOLEAN", {"default": True, "label_on": "comfy", "label_off": "device", "tooltip": "Keep model in comfy_auto_unet_offload_device (HIGH_VRAM: device, Others: cpu) or device_memory after generation.\n生图完成后，模型转移到comfy自动选择设备(HIGH_VRAM: device, 其他: cpu)或者保留在设备专用内存上。"}),
                 },
-                "optional": {
-                    "latent": ("LATENT", ),
-                    "denoise_strength": ("FLOAT", {"default": 1.00, "min": 0.00, "max": 1.00, "step": 0.01, "tooltip": "For latent input."}),
-                }
             }
 
     RETURN_TYPES = ("LATENT", "IMAGE", )
@@ -113,18 +107,14 @@ class UL_SanaSampler:
     OUTPUT_TOOLTIPS = ("Sana Samples.", )
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
-    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, batch_size, keep_model_device, width, height, scheduler, output_type=False, latent=None, denoise_strength=1):
+    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, keep_model_device, scheduler, output_type=False, latent=None):
         results = model['pipe'](
             conds=sana_conds,
-            height=height,
-            width=width,
             guidance_scale=cfg,
             pag_guidance_scale=pag,
             num_inference_steps=(steps+1),
-            num_images_per_prompt=batch_size,
             generator=torch.Generator(device=device).manual_seed(seed),
             latents=None if latent == None else latent['samples'],
-            denoise_strength=denoise_strength,
             noise_scheduler=scheduler,
             output_type=output_type,
         )
@@ -148,8 +138,8 @@ class UL_SanaSampler:
             for img in results:
                 pil_results.append(pil2tensor(img))
             pil_results = torch.cat(pil_results, dim=0)
-
-            empty_latent = torch.zeros([1, 32, height // 32, width // 32], device=device) # 创建empty latent供调试。
+            
+            empty_latent = torch.zeros([1, 32, 768 // 32, 768 // 32], device=device) # 创建empty latent供调试。
             results = {"samples": empty_latent, "width": 768, "height": 768}
         else:
             import random
@@ -186,7 +176,7 @@ class UL_SanaModelLoader:
         from .diffusion.model.builder import build_model
         from .pipeline.sana_pipeline import SanaPipeline
         from huggingface_hub import snapshot_download
-        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg#, DCAE_HF
+        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg
         from .diffusion.model.dc_ae.efficientvit.models.efficientvit.dc_ae import DCAE
         import pyrallis
         from .diffusion.utils.config import SanaConfig
@@ -196,11 +186,6 @@ class UL_SanaModelLoader:
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px.pth'
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px_MultiLing.pth'
         # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_600M_1024px_MultiLing.pth'
-        
-        # vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
-        # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
-        # if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
-        #     snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
         
         if clip_type == 'gemma-2-2b-it':
             text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it')
@@ -229,26 +214,37 @@ class UL_SanaModelLoader:
         if "T5" in clip_type:
             from transformers import T5Tokenizer, T5EncoderModel
             tokenizer = T5Tokenizer.from_pretrained(text_encoder_dir)
-            text_encoder_model = None
+            llm_model = None
             text_encoder = T5EncoderModel.from_pretrained(text_encoder_dir, torch_dtype=dtype)
         else:
-            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig#, Gemma2ForCausalLM, Gemma2Config, GemmaTokenizerFast
+            from transformers import (
+                AutoTokenizer, 
+                AutoModelForCausalLM, 
+                BitsAndBytesConfig, 
+                # Gemma2Config,
+                # GemmaTokenizerFast,
+                # Gemma2ForCausalLM,
+                )
+            # import json
             tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
             
             quantization_config = BitsAndBytesConfig(load_in_8bit=True) if clip_quantize=='8-bit' else BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=dtype) if clip_quantize=='4-bit' else None
             
-            text_encoder_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, quantization_config=quantization_config, torch_dtype=dtype) if clip_type != 'gemma-2-2b-it-bnb-4bit' else AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            llm_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, quantization_config=quantization_config, torch_dtype=dtype) if clip_type != 'gemma-2-2b-it-bnb-4bit' else AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
             
-            # tokenizer = GemmaTokenizerFast.from_pretrained(gemma2_tokenizer_dir)
-            # config = Gemma2Config.from_json_file(gemma2_config_path)
-            # text_encoder_model = Gemma2ForCausalLM(**config)
-            # state_dict = load_torch_file(gemma2_model_path, safe_load=True)
-            # text_encoder_model.load_state_dict()
-            # text_encoder_model.to(dtype)
+            # llm_model_path = os.path.join(text_encoder_dir, 'model.safetensors')
+            # config_path = os.path.join(text_encoder_dir, 'config.json')
+            # with open(config_path, 'r') as file:
+            #     config = json.load(file)
+            # tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
+            # llm_model = Gemma2ForCausalLM(**config) if 'bit' not in clip_type else Gemma2ForCausalLM(**config, quantization_config=quantization_config)
+            # state_dict = load_torch_file(llm_model_path, safe_load=True)
+            # llm_model.load_state_dict(state_dict)
+            # state_dict = None
+            # llm_model.to(dtype)
             
             tokenizer.padding_side = "right"
-            
-            text_encoder = text_encoder_model.get_decoder()
+            text_encoder = llm_model.get_decoder()
         
         if clip_init_device:
             try:
@@ -302,13 +298,13 @@ class UL_SanaModelLoader:
         clip = {
             'tokenizer': tokenizer,
             'text_encoder': text_encoder,
-            'text_encoder_model': text_encoder_model,
+            'text_encoder_model': llm_model,
         }
         
         model = {
             'pipe': pipe,
             'unet': unet,
-            'text_encoder_model': text_encoder_model,
+            'text_encoder_model': llm_model,
             'tokenizer': tokenizer,
             'text_encoder': text_encoder,
             'vae': vae,
@@ -346,23 +342,6 @@ class UL_SanaTextEncode:
         base_ratios = eval(f"ASPECT_RATIO_{1024}_TEST")
         tokenizer = sana_clip['tokenizer']
         text_encoder = sana_clip['text_encoder']
-        
-        # llm = sana_clip['text_encoder_model'].eval().to(device)
-        # messages = [
-        #     {"role": "user", "content": f"Translate provided text into english if it is not english: {text}"},
-        # ]
-        # input_ids = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(device)
-        # if input_ids.shape[1] > 2048:
-        #     print(f"\033[93mTrimmed input from conversation as it was longer than 2048 tokens.\033[0m")
-        # text = llm.generate(input_ids=input_ids, max_new_tokens=1024, do_sample=True, top_p=0.9, top_k=50, temperature=0.6, num_beams=1, repetition_penalty=1.2)
-        # text = tokenizer.decode(text[0], skip_prompt=True, skip_special_tokens=True)
-        # prompt = f"Translate provided text into english if it is not english: {text}"
-        # input_ids = tokenizer.encode(prompt, add_special_tokens=False, return_tensors="pt")
-        # outputs = llm.generate(input_ids=input_ids.to(device), max_new_tokens=1024)
-        # text = tokenizer.decode(outputs[0])
-        # llm.to(text_encoder_offload_device())
-        
-        # print(f"\033[93m{text}\033[0m")
         
         text, n_text = apply_style(preset_styles, text, n_text)
         
@@ -425,17 +404,10 @@ class UL_SanaVAELoader:
     DESCRIPTION = "For test only."
     
     def loader(self, vae_name, weight_dtype):
-        # from huggingface_hub import snapshot_download
-        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg#, DCAE_HF
+        from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg
         from .diffusion.model.dc_ae.efficientvit.models.efficientvit.dc_ae import DCAE
         
         dtype = get_dtype_by_name(weight_dtype)
-        # vae_dir = os.path.join(folder_paths.models_dir, 'vae', 'models--mit-han-lab--dc-ae-f32c32-sana-1.0')
-        # vae_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0'
-        # if not os.path.exists(os.path.join(vae_dir, 'model.safetensors')):
-        #     snapshot_download('mit-han-lab/dc-ae-f32c32-sana-1.0', local_dir=vae_dir)
-        
-        # vae = DCAE_HF.from_pretrained(vae_dir).to(dtype).eval()
         
         vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
         # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
