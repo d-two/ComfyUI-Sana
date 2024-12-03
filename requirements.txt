@@ -8,6 +8,6 @@ numpy<2
 pillow
 bitsandbytes
 huggingface_hub<0.26.0
-diffusers
+diffusers>=0.29
 omegaconf
 # mmcv>=1.7.2
