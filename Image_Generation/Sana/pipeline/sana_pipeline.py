@@ -51,22 +51,21 @@ class SanaPipeline(nn.Module):
     def forward(
         self,
         conds,
-        height=1024,
-        width=1024,
         num_inference_steps=20,
         guidance_scale=5,
         pag_guidance_scale=2.5,
         num_images_per_prompt=1,
         generator=torch.Generator().manual_seed(42),
         latents=None,
-        denoise_strength=1,
         noise_scheduler='flow_dpm-solver',
         output_type=True,
     ):
         guidance_type = "classifier-free_PAG"
         self.device = device
-        if latents != None:
+        if latents.shape[1] == 32:
             width, height = latents.shape[3] * self.vae_scale_factor, latents.shape[2] * self.vae_scale_factor
+        else: # comfy empty latent
+            width, height = latents.shape[3] * 8, latents.shape[2] * 8
         self.ori_height, self.ori_width = height, width
         self.height, self.width = classify_height_width_bin(height, width, ratios=self.base_ratios)
         self.latent_size_h, self.latent_size_w = (
@@ -82,10 +81,14 @@ class SanaPipeline(nn.Module):
         for _ in range(num_images_per_prompt):
             with torch.no_grad():
             # with torch.inference_mode():
-                n = 1
+                n = latents.shape[0]
                 caption_embs, null_y, emb_masks = conds[0].to(self.weight_dtype), conds[1].to(self.weight_dtype), conds[2]
                 
-                if latents is None:
+                if latents.shape[1] != 32: 
+                    # resize comfy empty latent to DCAE latent size
+                    # resized_latents = latents.clone().resize_(latents.shape[0], self.config.vae.vae_latent_dim, self.latent_size_h, self.latent_size_w)
+                    # resized_latents = torch.randn_like(resized_latents)
+                    # z = resized_latents.to(self.device, self.weight_dtype)
                     z = torch.randn(
                         n,
                         self.config.vae.vae_latent_dim,
@@ -95,10 +98,7 @@ class SanaPipeline(nn.Module):
                         device=self.device,
                     )
                 else:
-                    weight = torch.tensor(denoise_strength).unsqueeze(-1).unsqueeze(-1)
-                    weight = weight.to(device, self.weight_dtype)
-                    # z = (latents * self.vae_scaling_factor * weight).to(self.device, self.weight_dtype)
-                    z = (latents * weight).to(self.device, self.weight_dtype)
+                    z = latents.to(self.device, self.weight_dtype)
                     
                 try:
                     self.model.to(device)
