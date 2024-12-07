@@ -51,8 +51,6 @@ class SanaPipeline(nn.Module):
     def forward(
         self,
         conds,
-        height=1024,
-        width=1024,
         num_inference_steps=20,
         guidance_scale=5,
         pag_guidance_scale=2.5,

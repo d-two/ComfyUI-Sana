@@ -200,8 +200,6 @@ class UL_SanaModelLoader:
         else:
             raise ValueError('Not implemented!')
         
-        # vae = DCAE_HF.from_pretrained(vae_dir).to(dtype).eval()
-        
         vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
         # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
         cfg = create_dc_ae_model_cfg('dc-ae-f32c32-sana-1.0')
@@ -224,6 +222,7 @@ class UL_SanaModelLoader:
                 # Gemma2Config,
                 # GemmaTokenizerFast,
                 # Gemma2ForCausalLM,
+                # Gemma2Model,
                 )
             # import json
             tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
@@ -236,8 +235,9 @@ class UL_SanaModelLoader:
             # config_path = os.path.join(text_encoder_dir, 'config.json')
             # with open(config_path, 'r') as file:
             #     config = json.load(file)
+            # config = Gemma2Config(**config)
             # tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
-            # llm_model = Gemma2ForCausalLM(**config) if 'bit' not in clip_type else Gemma2ForCausalLM(**config, quantization_config=quantization_config)
+            # llm_model = Gemma2Model(config) if 'bit' in clip_type else Gemma2Model(config, quantization_config=quantization_config)
             # state_dict = load_torch_file(llm_model_path, safe_load=True)
             # llm_model.load_state_dict(state_dict)
             # state_dict = None

@@ -7,4 +7,5 @@ open_clip_torch
 timm
 numpy<2
 pillow
+omegaconf
 # mmcv>=1.7.2
