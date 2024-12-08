@@ -427,7 +427,7 @@ class UL_SanaPAGAppliedLayers:
         return {
             "required": {
                 "model": ("Sana_Model", ),
-                "pag_applied_layers": ("INT", {"default": 14, "min": 0, "max": 27, "tooltip": "0.6b: 14, 1.6b: 8."}),
+                "pag_applied_layers": ("INT", {"default": 14, "min": 0, "max": 27, "tooltip": "Default: 0.6b: 14, 1.6b: 8."}),
                 "pag_num_layers": ("INT", {"default": 1, "min": 1, "max": 27, "tooltip": "Default: 1."}),
             },
         }
