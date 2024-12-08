@@ -7,7 +7,7 @@ from ..diffusion.model.utils import resize_and_crop_tensor
 from diffusers.image_processor import PixArtImageProcessor
 from ..diffusion.data.datasets.utils import ASPECT_RATIO_512_TEST, ASPECT_RATIO_1024_TEST, ASPECT_RATIO_2048_TEST
 from comfy.model_management import get_torch_device, vae_offload_device, unet_offload_device, soft_empty_cache
-from ..nodes import is_lowvram
+from ..nodes import is_lowvram, vae_dtype
 
 device = get_torch_device()
 
@@ -59,6 +59,7 @@ class SanaPipeline(nn.Module):
         latents=None,
         noise_scheduler='flow_dpm-solver',
         output_type=True,
+        pag_applied_layers=None,
     ):
         guidance_type = "classifier-free_PAG"
         self.device = device
@@ -73,6 +74,8 @@ class SanaPipeline(nn.Module):
             self.width // self.config.vae.vae_downsample_rate,
         )
         self.guidance_type = guidance_type_select(guidance_type, pag_guidance_scale, self.config.model.attn_type)
+        
+        pag_applied_layers = pag_applied_layers if pag_applied_layers != None else self.config.model.pag_applied_layers
 
         hw, ar = (
             torch.tensor([[self.image_size, self.image_size]], dtype=torch.float, device=self.device).repeat(num_images_per_prompt, 1),
@@ -153,7 +156,7 @@ class SanaPipeline(nn.Module):
                         guidance_type=self.guidance_type,
                         cfg_scale=guidance_scale,
                         pag_scale=pag_guidance_scale,
-                        pag_applied_layers=self.config.model.pag_applied_layers,
+                        pag_applied_layers=pag_applied_layers, #self.config.model.pag_applied_layers, # 0.6b: [14] 1.6b: [8]
                         model_type="flow",
                         model_kwargs=model_kwargs,
                         schedule="FLOW",
@@ -167,19 +170,19 @@ class SanaPipeline(nn.Module):
                         flow_shift=self.flow_shift,
                     )
 
-            sample = sample.to(self.weight_dtype)
+            # sample = sample.to(self.weight_dtype)
             
             if not output_type:
                 if is_lowvram:
                     self.model.to(unet_offload_device())
                 soft_empty_cache(True)
-                self.vae.to(device)
+                self.vae.to(device, vae_dtype)
                 
                 with torch.no_grad():
                 # with torch.inference_mode():
-                    sample = self.vae.decode(sample.detach() / self.vae.cfg.scaling_factor)
-                sample = resize_and_crop_tensor(sample, self.ori_width, self.ori_height)
-                samples = self.image_processor.postprocess(sample.cpu())
+                    sample = self.vae.decode(sample.to(vae_dtype).detach() / self.vae.cfg.scaling_factor)
+                sample = resize_and_crop_tensor(sample.float(), self.ori_width, self.ori_height)
+                samples = self.image_processor.postprocess(sample.cpu().float())
                 
                 self.vae.to(vae_offload_device())
             else:

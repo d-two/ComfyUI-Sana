@@ -6,6 +6,7 @@
 - Ram will not released (tried but failed).
 - If select `gemma-2-2b-it` and apply `clip_quantize`, parts of text_encoder will remain in vram.
 - Test on rtx cuda-device with win10+py311+torch2.5.1+cuda126.
+- If use comfy vae decode node, output image size maybe not same as input.
 ## Known issue:
 - Batch_size not work, it's a loop which i don't think is a good idea, so i left it empty.
 - Image2image not work.
