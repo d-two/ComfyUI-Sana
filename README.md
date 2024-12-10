@@ -1,3 +1,4 @@
+# Use official node [ComfyUI_ExtraModels](https://github.com/city96/ComfyUI_ExtraModels) instead.
 # Unofficial wrapper custom-node for [SANA: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer](https://github.com/NVlabs/Sana)
 # Waiting for comfy official support [Add ⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer Support](https://github.com/comfyanonymous/ComfyUI/issues/5785)!
 # Sorry for the wrong links of [vae_model](https://github.com/zmwv823/ComfyUI-Sana/issues/3), now should be right one.
