@@ -2,15 +2,16 @@ import os
 import torch
 import folder_paths
 import numpy as np
-from comfy.model_management import get_torch_device, soft_empty_cache, unet_offload_device, text_encoder_offload_device, vae_offload_device
+from comfy.model_management import get_torch_device, soft_empty_cache, unet_offload_device, text_encoder_offload_device, vae_offload_device, vae_dtype, total_vram, text_encoder_dtype
 from comfy.utils import load_torch_file
 from PIL import Image
 import comfy.model_management as mm
-from .pipeline.nodes_model_config import get_vram
 # from copy import deepcopy
 
 device = get_torch_device()
-is_lowvram = get_vram(device)[1] < 8888
+vae_dtype = vae_dtype(device, [torch.float16, torch.bfloat16, torch.float32])
+text_encoder_dtype = text_encoder_dtype(device)
+is_lowvram = (torch.cuda.is_available() and total_vram < 8888)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 class UL_SanaVAEProcess:
@@ -18,7 +19,7 @@ class UL_SanaVAEProcess:
     def INPUT_TYPES(s):
         return {
             "required": { 
-                "vae": ("Sana_VAE", )
+                "vae": ("VAE", )
             },
             "optional": {
                 "latent": ("LATENT", ),
@@ -34,8 +35,8 @@ class UL_SanaVAEProcess:
     DESCRIPTION = "WIP."
 
     def process(self, vae, latent=None, image=None):
-        vae, dtype = vae['vae'], vae['dtype']
-        vae.to(device)
+        vae = vae.vae
+        vae.to(device, vae_dtype)
         if latent != None and image != None:
             raise ValueError('......')
         elif latent != None: # decode
@@ -46,33 +47,34 @@ class UL_SanaVAEProcess:
                 width, height = latent['width'], latent['height']
             else:
                 width = None
-            latent = latent['samples'].to(device, dtype)
+            latent = latent['samples'].to(device, vae_dtype)
             with torch.inference_mode():
                 result = vae.decode(latent.detach() / vae.cfg.scaling_factor)
             if width != None:
-                result = image_processor.resize_and_crop_tensor(result, width, height)
-            result = image_processor.postprocess(result.cpu())
+                result = image_processor.resize_and_crop_tensor(result.float(), width, height)
+            result = image_processor.postprocess(result.cpu().float())
             results = []
             for img in result:
                 results.append(pil2tensor(img))
             result = torch.cat(results, dim=0)
         elif image != None: # encode
-            import torchvision.transforms as transforms
+            # import torchvision.transforms as transforms
             # from .diffusion.model.dc_ae.efficientvit.apps.utils.image import DMCrop
-            image_np = image.squeeze().mul(255).clamp(0, 255).byte().numpy()
-            image = Image.fromarray(image_np, mode='RGB')
+            # image_np = image.squeeze().mul(255).clamp(0, 255).byte().numpy()
+            # image = Image.fromarray(image_np, mode='RGB')
             
-            transform = transforms.Compose([
-                # DMCrop(1024), # resolution
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ])
-            x = transform(image)[None].to(device, dtype)
+            # transform = transforms.Compose([
+            #     # DMCrop(1024), # resolution
+            #     transforms.ToTensor(),
+            #     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            # ])
+            # x = transform(image)[None].to(device, dtype)
             # image = image.permute(0, 3, 1, 2)
+            image = (image * 2.0 - 1.0).permute(0, 3, 1, 2)
             with torch.inference_mode():
-                # latent = vae.encode(image.to(device, dtype))
-                latent = vae.encode(x)
-                latent = latent * vae.cfg.scaling_factor
+                latent = vae.encode(image.to(device, vae_dtype))
+                # latent = vae.encode(x)
+            latent = latent * vae.cfg.scaling_factor
             result = image
         vae.to(vae_offload_device())
         soft_empty_cache(True)
@@ -108,6 +110,7 @@ class UL_SanaSampler:
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
     def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, keep_model_device, scheduler, output_type=False, latent=None):
+        pag_applied_layers = None if 'pag_applied_layers' not in model.keys() else model['pag_applied_layers']
         results = model['pipe'](
             conds=sana_conds,
             guidance_scale=cfg,
@@ -117,6 +120,7 @@ class UL_SanaSampler:
             latents=None if latent == None else latent['samples'],
             noise_scheduler=scheduler,
             output_type=output_type,
+            pag_applied_layers=pag_applied_layers,
         )
         if keep_model_loaded and keep_model_device:
             model['unet'].to(unet_offload_device())
@@ -156,15 +160,15 @@ class UL_SanaModelLoader:
         return {
             "required": {
                 "unet_name": (folder_paths.get_filename_list("diffusion_models"), ),
+                "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto", "tooltip": "Just for model dtype control, for vae and clip use comfy `main.py --args`."}),
                 "vae_name": (vaes, ),
                 "clip_type": (["gemma-2-2b-it", "gemma-2-2b-it-bnb-4bit","Qwen2-1.5B-Instruct","T5-xxl"],{"default":"gemma-2-2b-it"}),
-                "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
                 "clip_init_device": ("BOOLEAN", {"default": True, "label_on": "device", "label_off": "cpu", "tooltip": "For ram <= 16gb and with cuda device, device is recommended for decrease ram consumption."}),
                 "clip_quantize": (["None", "8-bit", "4-bit"], {"tooltip": "For non quantized llm model."}),
             },
         }
 
-    RETURN_TYPES = ("Sana_Model", "Sana_Clip", "Sana_VAE",)
+    RETURN_TYPES = ("Sana_Model", "Sana_Clip", "VAE",)
     RETURN_NAMES = ("model", "clip", "vae",)
     FUNCTION = "loader"
     CATEGORY = "UL Group/Image Generation"
@@ -207,13 +211,13 @@ class UL_SanaModelLoader:
         state_dict = load_torch_file(vae_path, safe_load=True)
         vae.load_state_dict(state_dict, strict=False)
         state_dict = None
-        vae.to(dtype).eval()
+        vae.to(vae_dtype).eval()
         
         if "T5" in clip_type:
             from transformers import T5Tokenizer, T5EncoderModel
             tokenizer = T5Tokenizer.from_pretrained(text_encoder_dir)
             llm_model = None
-            text_encoder = T5EncoderModel.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            text_encoder = T5EncoderModel.from_pretrained(text_encoder_dir, torch_dtype=text_encoder_dtype)
         else:
             from transformers import (
                 AutoTokenizer, 
@@ -227,9 +231,9 @@ class UL_SanaModelLoader:
             # import json
             tokenizer = AutoTokenizer.from_pretrained(text_encoder_dir)
             
-            quantization_config = BitsAndBytesConfig(load_in_8bit=True) if clip_quantize=='8-bit' else BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=dtype) if clip_quantize=='4-bit' else None
+            quantization_config = BitsAndBytesConfig(load_in_8bit=True) if clip_quantize=='8-bit' else BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=text_encoder_dtype) if clip_quantize=='4-bit' else None
             
-            llm_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, quantization_config=quantization_config, torch_dtype=dtype) if clip_type != 'gemma-2-2b-it-bnb-4bit' else AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=dtype)
+            llm_model = AutoModelForCausalLM.from_pretrained(text_encoder_dir, quantization_config=quantization_config, torch_dtype=text_encoder_dtype) if clip_type != 'gemma-2-2b-it-bnb-4bit' else AutoModelForCausalLM.from_pretrained(text_encoder_dir, torch_dtype=text_encoder_dtype)
             
             # llm_model_path = os.path.join(text_encoder_dir, 'model.safetensors')
             # config_path = os.path.join(text_encoder_dir, 'config.json')
@@ -291,7 +295,7 @@ class UL_SanaModelLoader:
         if "pos_embed" in state_dict:
             del state_dict["pos_embed"]
         missing, unexpected = unet.load_state_dict(state_dict, strict=False)
-        state_dict = None
+        del state_dict
         unet.eval().to(dtype)
         pipe = SanaPipeline(config, vae, dtype, unet)
         
@@ -310,10 +314,7 @@ class UL_SanaModelLoader:
             'vae': vae,
         }
         
-        out_vae = {
-            'vae': vae,
-            'dtype': dtype,
-        }
+        out_vae = first_stage_model(vae)
         
         return (model, clip, out_vae, )
 
@@ -391,11 +392,10 @@ class UL_SanaVAELoader:
         return {
             "required": {
                 "vae_name": (vaes, ),
-                "weight_dtype": (["auto","fp16","bf16","fp32"],{"default":"auto"}),
             },
         }
 
-    RETURN_TYPES = ("Sana_VAE",)
+    RETURN_TYPES = ("VAE",)
     RETURN_NAMES = ("vae",)
     FUNCTION = "loader"
     CATEGORY = "UL Group/Image Generation"
@@ -403,11 +403,9 @@ class UL_SanaVAELoader:
     OUTPUT_TOOLTIPS = ("Sana VAE: DCAE.", )
     DESCRIPTION = "For test only."
     
-    def loader(self, vae_name, weight_dtype):
+    def loader(self, vae_name):
         from .diffusion.model.dc_ae.efficientvit.ae_model_zoo import create_dc_ae_model_cfg
         from .diffusion.model.dc_ae.efficientvit.models.efficientvit.dc_ae import DCAE
-        
-        dtype = get_dtype_by_name(weight_dtype)
         
         vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
         # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
@@ -415,15 +413,53 @@ class UL_SanaVAELoader:
         vae = DCAE(cfg)
         state_dict = load_torch_file(vae_path, safe_load=True)
         vae.load_state_dict(state_dict, strict=False)
-        state_dict = None
-        vae.to(dtype).eval()
+        del state_dict
+        vae.to(vae_dtype).eval()
         
-        out_vae = {
-            'vae': vae,
-            'dtype': dtype,
-        }
+        out_vae = first_stage_model(vae)
+        
         
         return (out_vae, )
+        
+class UL_SanaPAGAppliedLayers:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "model": ("Sana_Model", ),
+                "pag_applied_layers": ("INT", {"default": 14, "min": 0, "max": 27, "tooltip": "Default: 0.6b: 14, 1.6b: 8."}),
+                "pag_num_layers": ("INT", {"default": 1, "min": 1, "max": 27, "tooltip": "Default: 1."}),
+            },
+        }
+
+    RETURN_TYPES = ("Sana_Model",)
+    RETURN_NAMES = ("model",)
+    FUNCTION = "pag"
+    CATEGORY = "UL Group/Image Generation"
+    TITLE = "Sana PAG Adjust(TestOnly)"
+    OUTPUT_TOOLTIPS = ("Sana pag_applied_layers.", )
+    DESCRIPTION = "For test only."
+    
+    def pag(self, model, pag_applied_layers, pag_num_layers):
+        pag_total_layers = []
+        for i in range(pag_num_layers):
+            if -1<pag_applied_layers+i<28:
+                pag_total_layers.append(pag_applied_layers+i)
+            elif pag_applied_layers+i>28:
+                pag_total_layers.append(pag_applied_layers-i)
+        pag_applied_layers = pag_total_layers
+        
+        model = {
+            'pipe': model['pipe'],
+            'unet': model['unet'],
+            'text_encoder_model': model['text_encoder_model'],
+            'tokenizer': model['tokenizer'],
+            'text_encoder': model['text_encoder'],
+            'vae': model['vae'],
+            'pag_applied_layers': pag_applied_layers,
+        }
+        
+        return (model, )
         
 NODE_CLASS_MAPPINGS = {
     "UL_SanaSampler": UL_SanaSampler,
@@ -431,6 +467,7 @@ NODE_CLASS_MAPPINGS = {
     "UL_SanaTextEncode": UL_SanaTextEncode,
     "UL_SanaVAEProcess": UL_SanaVAEProcess,
     "UL_SanaVAELoader": UL_SanaVAELoader,
+    "UL_SanaPAGAppliedLayers": UL_SanaPAGAppliedLayers,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "Sana Sampler": "UL_SanaSampler",
@@ -544,3 +581,33 @@ def apply_style(style_name: str, positive: str, negative: str = "") -> tuple[str
     if not negative:
         negative = ""
     return p.replace("{prompt}", positive), n + negative
+
+class first_stage_model:
+    def __init__(self, vae):
+        self.vae = vae
+        
+    @torch.inference_mode()
+    def encode(self, image):
+        self.vae.to(device, vae_dtype)
+        image = (image * 2.0 - 1).permute(0, 3, 1, 2)
+        latent = self.vae.encode(image.to(device, vae_dtype))
+        latent = latent * self.vae.cfg.scaling_factor
+        self.vae.to(vae_offload_device())
+        return latent
+    
+    @torch.inference_mode()
+    def decode(self, latent):
+        from diffusers.image_processor import PixArtImageProcessor
+        vae_scale_factor = 2 ** (len(self.vae.cfg.encoder.width_list) - 1)
+        image_processor = PixArtImageProcessor(vae_scale_factor=vae_scale_factor)
+        self.vae.to(device, vae_dtype)
+        # with torch.inference_mode():
+        result = self.vae.decode(latent.to(device, vae_dtype).detach() / self.vae.cfg.scaling_factor)
+        result = image_processor.postprocess(result.cpu().float())
+        results = []
+        for img in result:
+            results.append(pil2tensor(img))
+            # results.append((img / 2 + 1).clamp(-1, 1).cpu().float())
+        result = torch.cat(results, dim=0)
+        self.vae.to(vae_offload_device())
+        return result
