@@ -15,7 +15,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-from diffusers.models import AutoencoderKL
 from termcolor import colored
 from transformers import AutoModelForCausalLM, AutoTokenizer, T5EncoderModel, T5Tokenizer
 from transformers import logging as transformers_logging
@@ -91,16 +90,7 @@ def get_tokenizer_and_text_encoder(name="T5", device="cuda", text_encoder_dict_c
 
 
 def get_vae(name, model_path, device="cuda"):
-    if name == "sdxl" or name == "sd3":
-        vae = AutoencoderKL.from_pretrained(model_path).to(device).to(torch.float16)
-        if name == "sdxl":
-            vae.config.shift_factor = 0
-        return vae
-    # elif "dc-ae" in name:
-    #     print(colored(f"[DC-AE] Loading model from {model_path}", attrs=["bold"]))
-    #     dc_ae = DCAE_HF.from_pretrained(model_path).to(device).eval()
-    #     return dc_ae
-    elif "dc-ae" in name:
+    if "dc-ae" in name:
         print(colored(f"[DC-AE] Loading model from {model_path}", attrs=["bold"]))
         dc_ae = DCAE_HF.from_pretrained(model_path).to(device).eval()
         return dc_ae
