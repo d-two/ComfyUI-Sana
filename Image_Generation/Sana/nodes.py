@@ -6,7 +6,6 @@ from comfy.model_management import get_torch_device, soft_empty_cache, unet_offl
 from comfy.utils import load_torch_file
 from PIL import Image
 import comfy.model_management as mm
-# from copy import deepcopy
 
 device = get_torch_device()
 vae_dtype = vae_dtype(device, [torch.float16, torch.bfloat16, torch.float32])
@@ -88,7 +87,8 @@ class UL_SanaSampler:
             "required": 
                 {
                 "model": ("Sana_Model", ),
-                "sana_conds": ("Sana_Conditionings", ),
+                "positive": ("CONDITIONING", ),
+                "negative": ("CONDITIONING", ),
                 "latent": ("LATENT", ),
                 "seed": ("INT", {"default": 88888888, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "steps": ("INT", {"default": 18, "min": 1, "max": 100}),
@@ -109,10 +109,11 @@ class UL_SanaSampler:
     OUTPUT_TOOLTIPS = ("Sana Samples.", )
     DESCRIPTION = "⚡️Sana: Efficient High-Resolution Image Synthesis with Linear Diffusion Transformer\nWe introduce Sana, a text-to-image framework that can efficiently generate images up to 4096 × 4096 resolution.\nSana can synthesize high-resolution, high-quality images with strong text-image alignment at a remarkably fast speed, deployable on laptop GPU."
 
-    def sampler(self, model, sana_conds, steps, cfg, pag, seed, keep_model_loaded, keep_model_device, scheduler, output_type=False, latent=None):
+    def sampler(self, model, positive, negative, steps, cfg, pag, seed, keep_model_loaded, keep_model_device, scheduler, output_type=False, latent=None):
         pag_applied_layers = None if 'pag_applied_layers' not in model.keys() else model['pag_applied_layers']
         results = model['pipe'](
-            conds=sana_conds,
+            cond=positive,
+            uncond=negative,
             guidance_scale=cfg,
             pag_guidance_scale=pag,
             num_inference_steps=(steps+1),
@@ -168,7 +169,7 @@ class UL_SanaModelLoader:
             },
         }
 
-    RETURN_TYPES = ("Sana_Model", "Sana_Clip", "VAE",)
+    RETURN_TYPES = ("Sana_Model", "CLIP", "VAE",)
     RETURN_NAMES = ("model", "clip", "vae",)
     FUNCTION = "loader"
     CATEGORY = "UL Group/Image Generation"
@@ -187,25 +188,19 @@ class UL_SanaModelLoader:
         
         dtype = get_dtype_by_name(weight_dtype)
         unet_path = folder_paths.get_full_path_or_raise("diffusion_models", unet_name)
-        # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px.pth'
-        # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_1600M_1024px_MultiLing.pth'
-        # unet_path = r'C:\Users\pc\Desktop\New_Folder\SANA\Sana_600M_1024px_MultiLing.pth'
         
         if clip_type == 'gemma-2-2b-it':
             text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it')
-            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it'
             if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
                 snapshot_download('unsloth/gemma-2-2b-it', local_dir=text_encoder_dir)
         elif clip_type == 'gemma-2-2b-it-bnb-4bit':
             text_encoder_dir = os.path.join(folder_paths.models_dir, 'text_encoders', 'models--unsloth--gemma-2-2b-it-bnb-4bit')
-            # text_encoder_dir = r'C:\Users\pc\Desktop\New_Folder\SANA\models--unsloth--gemma-2-2b-it-bnb-4bit'
             if not os.path.exists(os.path.join(text_encoder_dir, 'model.safetensors')):
                 snapshot_download('unsloth/gemma-2-2b-it-bnb-4bit', local_dir=text_encoder_dir)
         else:
             raise ValueError('Not implemented!')
         
         vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
-        # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
         cfg = create_dc_ae_model_cfg('dc-ae-f32c32-sana-1.0')
         vae = DCAE(cfg)
         state_dict = load_torch_file(vae_path, safe_load=True)
@@ -299,11 +294,11 @@ class UL_SanaModelLoader:
         unet.eval().to(dtype)
         pipe = SanaPipeline(config, vae, dtype, unet)
         
-        clip = {
-            'tokenizer': tokenizer,
-            'text_encoder': text_encoder,
-            'text_encoder_model': llm_model,
-        }
+        # clip = {
+        #     'tokenizer': tokenizer,
+        #     'text_encoder': text_encoder,
+        #     'text_encoder_model': llm_model,
+        # }
         
         model = {
             'pipe': pipe,
@@ -315,6 +310,7 @@ class UL_SanaModelLoader:
         }
         
         out_vae = first_stage_model(vae)
+        clip = cond_stage_model(tokenizer, text_encoder)
         
         return (model, clip, out_vae, )
 
@@ -323,42 +319,40 @@ class UL_SanaTextEncode:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "sana_clip": ("Sana_Clip", {"tooltip": "The CLIP model used for encoding the text."}),
+                "clip": ("CLIP", {"tooltip": "The CLIP model used for encoding the text."}),
                 "text": ("STRING", {"default": "A wide shot of (cat) wearing (jacket) with boston city in background, masterpiece, best quality, high quality, 4K, highly detailed, extremely detailed, HD, ", "multiline": True, "dynamicPrompts": True, "tooltip": "The text to be encoded."}), 
                 "n_text": ("STRING", {"default": "watermark, author name, monochrome, lowres, bad anatomy, worst quality, low quality, username.", "multiline": True, "dynamicPrompts": True, "tooltip": "The text to be encoded."}), 
                 "preset_styles": (STYLE_NAMES, ),
             },
         }
-    RETURN_TYPES = ("Sana_Conditionings", "STRING", "STRING", )
-    RETURN_NAMES = ("sana_conds", "prompt", "n_prompt", )
+    RETURN_TYPES = ("CONDITIONING", "CONDITIONING", "STRING", "STRING", )
+    RETURN_NAMES = ("positive", "negative", "prompt", "n_prompt", )
     FUNCTION = "encode"
     CATEGORY = "UL Group/Image Generation"
     TITLE = "Sana Text Encoder"
     OUTPUT_TOOLTIPS = ("A conditioning containing the embedded text used to guide the diffusion model.",)
     DESCRIPTION = "Encodes a text prompt using a CLIP model into an embedding that can be used to guide the diffusion model towards generating specific images."
 
-    def encode(self, text, n_text, preset_styles, sana_clip=None):
+    def encode(self, text, n_text, preset_styles, clip=None):
         from .diffusion.model.utils import prepare_prompt_ar
         from .diffusion.data.datasets.utils import ASPECT_RATIO_512_TEST, ASPECT_RATIO_1024_TEST, ASPECT_RATIO_2048_TEST
         base_ratios = eval(f"ASPECT_RATIO_{1024}_TEST")
-        tokenizer = sana_clip['tokenizer']
-        text_encoder = sana_clip['text_encoder']
         
         text, n_text = apply_style(preset_styles, text, n_text)
         
         try:
-            text_encoder.to(device)
+            clip.text_encoder.to(device)
         except torch.cuda.OutOfMemoryError as e:
             raise e
         
-        null_caption_token = tokenizer(
+        null_caption_token = clip.tokenizer(
             n_text,
             max_length=300,
             padding="max_length",
             truncation=True,
             return_tensors="pt",
         ).to(device)
-        null_caption_embs = text_encoder(null_caption_token.input_ids, null_caption_token.attention_mask)[0]
+        null_caption_embs = clip.text_encoder(null_caption_token.input_ids, null_caption_token.attention_mask)[0]
         
         prompts = []
         with torch.no_grad():
@@ -366,9 +360,9 @@ class UL_SanaTextEncode:
             prompts.append(prepare_prompt_ar(text, base_ratios, device=device, show=False)[0].strip())
             chi_prompt = "\n".join(preset_te_prompt)
             prompts_all = [chi_prompt + text]
-            num_chi_prompt_tokens = len(tokenizer.encode(chi_prompt))
+            num_chi_prompt_tokens = len(clip.tokenizer.encode(chi_prompt))
             max_length_all = (num_chi_prompt_tokens + 300 - 2)  # magic number 2: [bos], [_]
-            caption_token = tokenizer(
+            caption_token = clip.tokenizer(
                 prompts_all,
                 max_length=max_length_all,
                 padding="max_length",
@@ -376,14 +370,14 @@ class UL_SanaTextEncode:
                 return_tensors="pt",
             ).to(device)
             select_index = [0] + list(range(-300 + 1, 0))
-            caption_embs = text_encoder(caption_token.input_ids, caption_token.attention_mask)[0][:, None][:, :, select_index]
+            caption_embs = clip.text_encoder(caption_token.input_ids, caption_token.attention_mask)[0][:, None][:, :, select_index]
             emb_masks = caption_token.attention_mask[:, select_index]
             null_y = null_caption_embs.repeat(len(prompts), 1, 1)[:, None]
         
-        text_encoder.to(text_encoder_offload_device())
+        clip.text_encoder.to(text_encoder_offload_device())
         soft_empty_cache(True)
         
-        return ([caption_embs, null_y, emb_masks], text, n_text, )
+        return ([[caption_embs, {"emb_masks": emb_masks}]], [[null_y, {}]], text, n_text, )
         
 class UL_SanaVAELoader:
     @classmethod
@@ -408,7 +402,6 @@ class UL_SanaVAELoader:
         from .diffusion.model.dc_ae.efficientvit.models.efficientvit.dc_ae import DCAE
         
         vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
-        # vae_path = r'C:\Users\pc\Desktop\New_Folder\SANA\models--mit-han-lab--dc-ae-f32c32-sana-1.0\model.safetensors'
         cfg = create_dc_ae_model_cfg('dc-ae-f32c32-sana-1.0')
         vae = DCAE(cfg)
         state_dict = load_torch_file(vae_path, safe_load=True)
@@ -427,7 +420,7 @@ class UL_SanaPAGAppliedLayers:
         return {
             "required": {
                 "model": ("Sana_Model", ),
-                "pag_applied_layers": ("INT", {"default": 14, "min": 0, "max": 27, "tooltip": "Default: 0.6b: 14, 1.6b: 8."}),
+                "pag_applied_layers": ("INT", {"default": 14, "min": 0, "max": 27, "tooltip": "0.6b: 14, 1.6b: 8."}),
                 "pag_num_layers": ("INT", {"default": 1, "min": 1, "max": 27, "tooltip": "Default: 1."}),
             },
         }
@@ -611,3 +604,29 @@ class first_stage_model:
         result = torch.cat(results, dim=0)
         self.vae.to(vae_offload_device())
         return result
+    
+class cond_stage_model:
+    def __init__(self, tokenizer, text_encoder):
+        self.tokenizer = tokenizer
+        self.text_encoder = text_encoder
+    
+    @torch.no_grad
+    def tokenize(self, text):
+        tokens = self.tokenizer(
+                text,
+                max_length=300,
+                padding="max_length", 
+                truncation=True,
+                return_tensors="pt"
+            ).to(self.text_encoder.device)
+        
+        return tokens
+    
+    def encode_from_tokens_scheduled(self, tokens):
+        self.text_encoder.to(device)
+        cond = self.text_encoder(tokens.input_ids, tokens.attention_mask)[0]
+        emb_masks = tokens.attention_mask.to(self.text_encoder.device)
+        cond = cond * emb_masks.unsqueeze(-1)
+        self.text_encoder.to(text_encoder_offload_device())
+        
+        return [[cond, {"emb_masks": emb_masks}]]

@@ -50,7 +50,8 @@ class SanaPipeline(nn.Module):
     @torch.inference_mode()
     def forward(
         self,
-        conds,
+        cond,
+        uncond,
         num_inference_steps=20,
         guidance_scale=5,
         pag_guidance_scale=2.5,
@@ -82,10 +83,11 @@ class SanaPipeline(nn.Module):
             torch.tensor([[1.0]], device=self.device).repeat(num_images_per_prompt, 1),
         )
         for _ in range(num_images_per_prompt):
-            with torch.no_grad():
+            # with torch.no_grad():
+            with torch.autocast(self.device.type):
             # with torch.inference_mode():
                 n = latents.shape[0]
-                caption_embs, null_y, emb_masks = conds[0].to(self.weight_dtype), conds[1].to(self.weight_dtype), conds[2]
+                caption_embs, null_y, emb_masks = cond[0][0].to(self.weight_dtype), uncond[0][0].to(self.weight_dtype), cond[0][1]['emb_masks']
                 
                 if latents.shape[1] != 32: 
                     # resize comfy empty latent to DCAE latent size
